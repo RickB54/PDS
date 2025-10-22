@@ -19,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { addEstimate } from "@/lib/db";
+import { jsPDF } from "jspdf";
 
 interface Service {
   id: string;
@@ -70,10 +72,23 @@ const ServiceChecklist = () => {
     return total;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const selectedIds = Array.from(selectedServices);
+    const selectedItems = [...services, ...addOns].filter((s) => selectedIds.includes(s.id));
+    const total = selectedItems.reduce((sum, s) => sum + s.price, 0);
+
+    await addEstimate({
+      customerName,
+      vehicleType,
+      notes,
+      items: selectedItems,
+      total,
+      createdAt: new Date().toISOString(),
+    });
+
     toast({
       title: "Estimate Saved",
-      description: "Service estimate has been saved successfully.",
+      description: "Service estimate has been saved locally.",
     });
   };
 
@@ -84,6 +99,50 @@ const ServiceChecklist = () => {
       title: "Notes Deleted",
       description: "Notes have been cleared.",
     });
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Prime Detail Solutions - Service Estimate", 14, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Customer: ${customerName || "-"}`, 14, 30);
+    doc.text(`Vehicle: ${vehicleType || "-"}`, 14, 38);
+
+    let y = 50;
+    doc.text("Selected Services:", 14, y);
+    y += 8;
+
+    const selectedItems = [...services, ...addOns].filter((s) => selectedServices.has(s.id));
+    if (selectedItems.length === 0) {
+      doc.text("- None -", 20, y);
+      y += 8;
+    } else {
+      selectedItems.forEach((s) => {
+        doc.text(`${s.name} - $${s.price}`, 20, y);
+        y += 8;
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+      });
+    }
+
+    y += 6;
+    doc.setFontSize(14);
+    doc.text(`Total: $${calculateTotal()}`, 14, y);
+    y += 10;
+
+    doc.setFontSize(12);
+    const noteText = notes ? `Notes: ${notes}` : "Notes: -";
+    const lines = doc.splitTextToSize(noteText, 180);
+    doc.text(lines, 14, y);
+
+    const fileName = `estimate-${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+
+    toast({ title: "PDF Generated", description: "Saved estimate PDF." });
   };
 
   return (
@@ -227,7 +286,7 @@ const ServiceChecklist = () => {
               <Save className="h-4 w-4 mr-2" />
               Save Estimate
             </Button>
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
+            <Button variant="outline" onClick={generatePDF} className="border-primary text-primary hover:bg-primary/10">
               <FileText className="h-4 w-4 mr-2" />
               Generate PDF
             </Button>

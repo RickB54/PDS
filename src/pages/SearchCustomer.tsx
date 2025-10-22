@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import CustomerModal from "@/components/customers/CustomerModal";
+import { getCustomers, upsertCustomer, deleteCustomer as removeCustomer } from "@/lib/db";
 import { Search, Pencil, Trash2, Plus } from "lucide-react";
 import {
   AlertDialog,
@@ -60,8 +62,34 @@ const mockCustomers: Customer[] = [
 const SearchCustomer = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [customers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const list = await getCustomers<Customer>();
+      if (!list.length) {
+        setCustomers(mockCustomers);
+      } else {
+        setCustomers(list as any);
+      }
+    })();
+  }, []);
+
+  const refresh = async () => {
+    const list = await getCustomers<Customer>();
+    setCustomers(list as any);
+  };
+
+  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (c: Customer) => { setEditing(c); setModalOpen(true); };
+  const onSaveModal = async (data: Customer) => {
+    await upsertCustomer(data);
+    await refresh();
+    toast({ title: "Customer Saved", description: "Record stored locally." });
+  };
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,7 +99,10 @@ const SearchCustomer = () => {
     customer.year.includes(searchTerm)
   );
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (!deleteCustomerId) return;
+    await removeCustomer(deleteCustomerId);
+    await refresh();
     toast({
       title: "Customer Deleted",
       description: "Customer record has been removed.",
@@ -90,7 +121,7 @@ const SearchCustomer = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-foreground">Find Customer</h2>
-                <Button className="bg-gradient-hero">
+                <Button className="bg-gradient-hero" onClick={openAdd}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add New Customer
                 </Button>
@@ -120,7 +151,7 @@ const SearchCustomer = () => {
                         <p className="text-muted-foreground">{customer.phone}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(customer)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button

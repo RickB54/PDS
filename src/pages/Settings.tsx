@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,19 +7,28 @@ import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const { toast } = useToast();
-
-  const handleBackup = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleBackup = async () => {
+    const { json } = await exportAll();
+    const filename = `prime-detail-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    downloadBlob(filename, json);
     toast({
       title: "Backup Created",
-      description: "All data has been backed up successfully.",
+      description: "All data has been backed up to a JSON file.",
     });
   };
 
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    await importAllFromJSON(text);
+    toast({ title: "Data Restored", description: "Your data has been restored from backup." });
+    e.currentTarget.value = "";
+  };
+
   const handleRestore = () => {
-    toast({
-      title: "Data Restored",
-      description: "Your data has been restored from backup.",
-    });
+    fileInputRef.current?.click();
   };
 
   return (
@@ -57,6 +67,7 @@ const Settings = () => {
                   <Upload className="h-4 w-4 mr-2" />
                   Restore from File
                 </Button>
+                <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={onFileChange} />
               </div>
             </div>
           </Card>
