@@ -20,12 +20,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 interface Customer {
-  id: string;
+  id?: string;
   name: string;
   phone: string;
   vehicle: string;
   model: string;
   year: string;
+  color: string;
+  mileage: string;
+  conditionInside: string;
+  conditionOutside: string;
   services: string[];
   lastService: string;
   duration: string;
@@ -40,6 +44,10 @@ const mockCustomers: Customer[] = [
     vehicle: "Toyota",
     model: "Camry",
     year: "2022",
+    color: "Silver",
+    mileage: "45000",
+    conditionInside: "Good",
+    conditionOutside: "Excellent",
     services: ["Full Exterior Detail", "Interior Cleaning"],
     lastService: "10/15/2025",
     duration: "2 hours",
@@ -52,6 +60,10 @@ const mockCustomers: Customer[] = [
     vehicle: "BMW",
     model: "X5",
     year: "2023",
+    color: "Black",
+    mileage: "12000",
+    conditionInside: "Excellent",
+    conditionOutside: "Good",
     services: ["Premium Detail"],
     lastService: "10/20/2025",
     duration: "3.5 hours",
@@ -69,18 +81,18 @@ const SearchCustomer = () => {
 
   useEffect(() => {
     (async () => {
-      const list = await getCustomers<Customer>();
+      const list = await getCustomers();
       if (!list.length) {
         setCustomers(mockCustomers);
       } else {
-        setCustomers(list as any);
+        setCustomers(list as Customer[]);
       }
     })();
   }, []);
 
   const refresh = async () => {
-    const list = await getCustomers<Customer>();
-    setCustomers(list as any);
+    const list = await getCustomers();
+    setCustomers(list as Customer[]);
   };
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
@@ -112,7 +124,7 @@ const SearchCustomer = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Search Customer" />
+      <PageHeader title="Customer Info" />
       
       <main className="container mx-auto px-4 py-6 max-w-6xl">
         <div className="space-y-6 animate-fade-in">
@@ -173,11 +185,31 @@ const SearchCustomer = () => {
                       </div>
                       
                       <div>
+                        <Label className="text-muted-foreground">Color</Label>
+                        <p className="text-foreground font-medium">{customer.color || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground">Mileage</Label>
+                        <p className="text-foreground font-medium">{customer.mileage ? `${customer.mileage} miles` : "N/A"}</p>
+                      </div>
+
+                      <div>
                         <Label className="text-muted-foreground">Last Service</Label>
                         <p className="text-foreground font-medium">{customer.lastService}</p>
                       </div>
 
                       <div>
+                        <Label className="text-muted-foreground">Condition (Inside)</Label>
+                        <p className="text-foreground font-medium">{customer.conditionInside || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground">Condition (Outside)</Label>
+                        <p className="text-foreground font-medium">{customer.conditionOutside || "N/A"}</p>
+                      </div>
+
+                      <div className="md:col-span-2">
                         <Label className="text-muted-foreground">Services</Label>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {customer.services.map((service, idx) => (

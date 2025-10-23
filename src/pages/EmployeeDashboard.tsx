@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -22,17 +29,19 @@ interface Task {
   id: string;
   text: string;
   completed: boolean;
+  createdAt: string;
 }
 
 const EmployeeDashboard = () => {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([
-    { id: "1", text: "Detail John's SUV at 2 PM", completed: false },
-    { id: "2", text: "Clean Sarah's BMW X5", completed: true },
+    { id: "1", text: "Detail John's SUV at 2 PM", completed: false, createdAt: new Date().toISOString() },
+    { id: "2", text: "Clean Sarah's BMW X5", completed: true, createdAt: new Date().toISOString() },
   ]);
   const [newTask, setNewTask] = useState("");
   const [notes, setNotes] = useState("");
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState("all");
 
   const toggleTask = (id: string) => {
     setTasks(tasks.map(task =>
@@ -47,6 +56,7 @@ const EmployeeDashboard = () => {
       id: Date.now().toString(),
       text: newTask,
       completed: false,
+      createdAt: new Date().toISOString(),
     };
     setTasks([...tasks, task]);
     setNewTask("");
@@ -55,6 +65,24 @@ const EmployeeDashboard = () => {
       description: "New task has been added to the list.",
     });
   };
+
+  const filterTasks = () => {
+    const now = new Date();
+    return tasks.filter(task => {
+      const taskDate = new Date(task.createdAt);
+      if (dateFilter === "daily") {
+        return taskDate.toDateString() === now.toDateString();
+      } else if (dateFilter === "weekly") {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return taskDate >= weekAgo;
+      } else if (dateFilter === "monthly") {
+        return taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  };
+
+  const filteredTasks = filterTasks();
 
   const deleteTask = () => {
     if (!deleteTaskId) return;
@@ -72,12 +100,27 @@ const EmployeeDashboard = () => {
       
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="space-y-6 animate-fade-in">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-foreground">Employee Dashboard</h1>
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="daily">Today</SelectItem>
+                <SelectItem value="weekly">This Week</SelectItem>
+                <SelectItem value="monthly">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Task List */}
           <Card className="p-6 bg-gradient-card border-border">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Today's Tasks</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Tasks</h2>
             
             <div className="space-y-3 mb-4">
-              {tasks.map((task) => (
+              {filteredTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/20 transition-colors"
@@ -137,15 +180,15 @@ const EmployeeDashboard = () => {
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="p-6 bg-gradient-card border-border">
-              <h3 className="text-lg font-semibold text-muted-foreground mb-2">Completed Today</h3>
+              <h3 className="text-lg font-semibold text-muted-foreground mb-2">Completed</h3>
               <p className="text-3xl font-bold text-primary">
-                {tasks.filter(t => t.completed).length}
+                {filteredTasks.filter(t => t.completed).length}
               </p>
             </Card>
             <Card className="p-6 bg-gradient-card border-border">
               <h3 className="text-lg font-semibold text-muted-foreground mb-2">Pending Tasks</h3>
               <p className="text-3xl font-bold text-primary">
-                {tasks.filter(t => !t.completed).length}
+                {filteredTasks.filter(t => !t.completed).length}
               </p>
             </Card>
           </div>

@@ -96,6 +96,12 @@ export async function upsertInvoice<T extends Partial<GenericWithId>>(inv: T): P
   return saved;
 }
 
+export async function deleteInvoice(id: string): Promise<void> {
+  const list = await getArray<any>(KEYS.invoices);
+  const next = list.filter((i: any) => i.id !== id);
+  await setArray(KEYS.invoices, next);
+}
+
 // Expenses (for Accounting page)
 export async function getExpenses<T extends GenericWithId>(): Promise<T[]> {
   return getArray<T>(KEYS.expenses);
@@ -119,6 +125,12 @@ export async function upsertExpense<T extends Partial<GenericWithId>>(exp: T): P
   }
   await setArray(KEYS.expenses, list);
   return saved;
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  const list = await getArray<any>(KEYS.expenses);
+  const next = list.filter((e: any) => e.id !== id);
+  await setArray(KEYS.expenses, next);
 }
 
 // Backup & Restore

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, Printer, Save, Trash2, Calendar } from "lucide-react";
-import { getInvoices, upsertInvoice, getCustomers } from "@/lib/db";
+import { getInvoices, upsertInvoice, getCustomers, deleteInvoice } from "@/lib/db";
 import { Customer } from "@/components/customers/CustomerModal";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -129,12 +129,11 @@ const Invoicing = () => {
     }
   };
 
-  const deleteInvoice = async (id: string) => {
-    const updated = invoices.filter(inv => inv.id !== id);
-    await upsertInvoice({ id } as any); // This will need proper delete function
-    setInvoices(updated);
+  const handleDeleteInvoice = async (id: string) => {
+    await deleteInvoice(id);
     setDeleteId(null);
     toast({ title: "Deleted", description: "Invoice deleted successfully" });
+    loadData();
   };
 
   const filterInvoices = () => {
@@ -285,7 +284,7 @@ const Invoicing = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteId && deleteInvoice(deleteId)}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteId && handleDeleteInvoice(deleteId)}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
