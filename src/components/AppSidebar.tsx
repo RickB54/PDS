@@ -7,7 +7,8 @@ import {
   BookOpen, 
   Users, 
   Truck,
-  Settings
+  Settings,
+  Package
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -27,6 +28,7 @@ const menuItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Service Checklist", url: "/checklist", icon: ClipboardCheck },
   { title: "Customer Info", url: "/customers", icon: Search },
+  { title: "Inventory Control", url: "/inventory", icon: Package },
   { title: "Invoicing", url: "/invoicing", icon: FileText },
   { title: "Accounting", url: "/accounting", icon: Calculator },
   { title: "Training Manual", url: "/training", icon: BookOpen },

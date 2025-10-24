@@ -14,6 +14,7 @@ export interface Customer {
   year: string;
   color: string;
   mileage: string;
+  vehicleType: string;
   conditionInside: string;
   conditionOutside: string;
   services: string[];
@@ -39,6 +40,7 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
     year: "",
     color: "",
     mileage: "",
+    vehicleType: "",
     conditionInside: "",
     conditionOutside: "",
     services: [],
@@ -60,6 +62,7 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
         year: "", 
         color: "",
         mileage: "",
+        vehicleType: "",
         conditionInside: "",
         conditionOutside: "",
         services: [], 
@@ -115,9 +118,24 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
             <Label htmlFor="color">Color</Label>
             <Input id="color" value={form.color} onChange={(e) => handleChange("color", e.target.value)} />
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2">
             <Label htmlFor="mileage">Approximate Mileage</Label>
             <Input id="mileage" value={form.mileage} onChange={(e) => handleChange("mileage", e.target.value)} placeholder="e.g., 45000" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="vehicleType">Vehicle Type</Label>
+            <select
+              id="vehicleType"
+              value={form.vehicleType}
+              onChange={(e) => handleChange("vehicleType", e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Select Type</option>
+              <option value="Compact/Sedan">Compact/Sedan</option>
+              <option value="Mid-Size/SUV">Mid-Size/SUV</option>
+              <option value="Truck/Van/Large SUV">Truck/Van/Large SUV</option>
+              <option value="Luxury/High-End">Luxury/High-End</option>
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="conditionInside">Condition (Inside)</Label>

@@ -28,6 +28,7 @@ interface Customer {
   year: string;
   color: string;
   mileage: string;
+  vehicleType: string;
   conditionInside: string;
   conditionOutside: string;
   services: string[];
@@ -46,6 +47,7 @@ const mockCustomers: Customer[] = [
     year: "2022",
     color: "Silver",
     mileage: "45000",
+    vehicleType: "Compact/Sedan",
     conditionInside: "Good",
     conditionOutside: "Excellent",
     services: ["Full Exterior Detail", "Interior Cleaning"],
@@ -62,6 +64,7 @@ const mockCustomers: Customer[] = [
     year: "2023",
     color: "Black",
     mileage: "12000",
+    vehicleType: "Luxury/High-End",
     conditionInside: "Excellent",
     conditionOutside: "Good",
     services: ["Premium Detail"],
@@ -78,6 +81,7 @@ const SearchCustomer = () => {
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [dateFilter, setDateFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
 
   useEffect(() => {
     (async () => {
@@ -103,13 +107,28 @@ const SearchCustomer = () => {
     toast({ title: "Customer Saved", description: "Record stored locally." });
   };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
-    customer.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.year.includes(searchTerm)
-  );
+  const filterByDate = (customer: Customer) => {
+    if (dateFilter === "all") return true;
+    if (!customer.lastService) return false;
+    
+    const serviceDate = new Date(customer.lastService);
+    const now = new Date();
+    const dayMs = 24 * 60 * 60 * 1000;
+    
+    if (dateFilter === "daily") return now.getTime() - serviceDate.getTime() < dayMs;
+    if (dateFilter === "weekly") return now.getTime() - serviceDate.getTime() < 7 * dayMs;
+    if (dateFilter === "monthly") return now.getTime() - serviceDate.getTime() < 30 * dayMs;
+    return true;
+  };
+
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm) ||
+      customer.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.year.includes(searchTerm);
+    return matchesSearch && filterByDate(customer);
+  });
 
   const handleDelete = async () => {
     if (!deleteCustomerId) return;
@@ -131,12 +150,24 @@ const SearchCustomer = () => {
           {/* Search Bar */}
           <Card className="p-6 bg-gradient-card border-border">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <h2 className="text-2xl font-bold text-foreground">Find Customer</h2>
-                <Button className="bg-gradient-hero" onClick={openAdd}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Customer
-                </Button>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value as any)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="daily">Today</option>
+                    <option value="weekly">This Week</option>
+                    <option value="monthly">This Month</option>
+                  </select>
+                  <Button className="bg-gradient-hero" onClick={openAdd}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Customer
+                  </Button>
+                </div>
               </div>
               
               <div className="relative">
@@ -192,6 +223,11 @@ const SearchCustomer = () => {
                       <div>
                         <Label className="text-muted-foreground">Mileage</Label>
                         <p className="text-foreground font-medium">{customer.mileage ? `${customer.mileage} miles` : "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground">Vehicle Type</Label>
+                        <p className="text-foreground font-medium">{customer.vehicleType || "N/A"}</p>
                       </div>
 
                       <div>

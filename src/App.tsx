@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import ServiceChecklist from "./pages/ServiceChecklist";
 import SearchCustomer from "./pages/SearchCustomer";
+import InventoryControl from "./pages/InventoryControl";
 import Invoicing from "./pages/Invoicing";
 import Accounting from "./pages/Accounting";
 import TrainingManual from "./pages/TrainingManual";
@@ -32,6 +33,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/checklist" element={<ServiceChecklist />} />
                 <Route path="/customers" element={<SearchCustomer />} />
+                <Route path="/inventory" element={<InventoryControl />} />
                 <Route path="/invoicing" element={<Invoicing />} />
                 <Route path="/accounting" element={<Accounting />} />
                 <Route path="/training" element={<TrainingManual />} />
