@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 export interface Customer {
   id?: string;
   name: string;
+  address: string;
   phone: string;
+  email: string;
   vehicle: string;
   model: string;
   year: string;
@@ -34,7 +36,9 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
   const [form, setForm] = useState<Customer>({
     id: undefined,
     name: "",
+    address: "",
     phone: "",
+    email: "",
     vehicle: "",
     model: "",
     year: "",
@@ -56,7 +60,9 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
       setForm({ 
         id: undefined, 
         name: "", 
+        address: "",
         phone: "", 
+        email: "",
         vehicle: "", 
         model: "", 
         year: "", 
@@ -101,6 +107,14 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Input id="address" value={form.address} onChange={(e) => handleChange("address", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="vehicle">Vehicle Make</Label>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ClipboardCheck, Search, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
-import logo from "@/assets/prime-logo.png";
+import logo from "@/assets/pds-final-logo.png";
 
 const Index = () => {
   return (
@@ -11,19 +11,15 @@ const Index = () => {
       <PageHeader />
       <main className="container mx-auto px-4 py-8">
         <div className="flex flex-col items-center justify-center space-y-8 animate-fade-in">
-          <img 
-            src={logo} 
-            alt="Prime Detail Solutions Logo" 
-            className="w-32 h-32 drop-shadow-glow"
-          />
-          
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Welcome to Prime Detail Solutions
-            </h1>
-            <p className="text-xl text-muted-foreground font-medium">
-              Precision. Protection. Perfection.
-            </p>
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+              Welcome To
+            </h2>
+            <img 
+              src={logo} 
+              alt="Prime Detail Solutions Logo" 
+              className="w-[144px] mx-auto drop-shadow-glow"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mt-12">

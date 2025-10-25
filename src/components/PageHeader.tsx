@@ -1,5 +1,5 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import logo from "@/assets/prime-logo-banner.png";
+import logo from "@/assets/pds-final-logo.png";
 
 interface PageHeaderProps {
   title?: string;
@@ -11,7 +11,7 @@ export function PageHeader({ title }: PageHeaderProps) {
       <div className="flex h-20 items-center gap-4 px-4">
         <SidebarTrigger className="text-foreground" />
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Prime Detail Solutions" className="h-12 w-auto" />
+          <img src={logo} alt="Prime Detail Solutions" className="h-10 w-auto" />
         </div>
         {title && (
           <>

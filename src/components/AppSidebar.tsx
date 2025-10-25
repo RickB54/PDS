@@ -33,7 +33,6 @@ const menuItems = [
   { title: "Accounting", url: "/accounting", icon: Calculator },
   { title: "Training Manual", url: "/training", icon: BookOpen },
   { title: "Employee Dashboard", url: "/employees", icon: Users },
-  { title: "Mobile Setup", url: "/mobile-setup", icon: Truck },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

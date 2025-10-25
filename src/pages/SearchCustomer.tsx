@@ -22,7 +22,9 @@ import { useToast } from "@/hooks/use-toast";
 interface Customer {
   id?: string;
   name: string;
+  address: string;
   phone: string;
+  email: string;
   vehicle: string;
   model: string;
   year: string;
@@ -37,43 +39,6 @@ interface Customer {
   notes: string;
 }
 
-const mockCustomers: Customer[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    phone: "(555) 123-4567",
-    vehicle: "Toyota",
-    model: "Camry",
-    year: "2022",
-    color: "Silver",
-    mileage: "45000",
-    vehicleType: "Compact/Sedan",
-    conditionInside: "Good",
-    conditionOutside: "Excellent",
-    services: ["Full Exterior Detail", "Interior Cleaning"],
-    lastService: "10/15/2025",
-    duration: "2 hours",
-    notes: "Prefers early morning appointments"
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    phone: "(555) 987-6543",
-    vehicle: "BMW",
-    model: "X5",
-    year: "2023",
-    color: "Black",
-    mileage: "12000",
-    vehicleType: "Luxury/High-End",
-    conditionInside: "Excellent",
-    conditionOutside: "Good",
-    services: ["Premium Detail"],
-    lastService: "10/20/2025",
-    duration: "3.5 hours",
-    notes: "Heavy dirt required extra time"
-  },
-];
-
 const SearchCustomer = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -86,11 +51,7 @@ const SearchCustomer = () => {
   useEffect(() => {
     (async () => {
       const list = await getCustomers();
-      if (!list.length) {
-        setCustomers(mockCustomers);
-      } else {
-        setCustomers(list as Customer[]);
-      }
+      setCustomers(list as Customer[]);
     })();
   }, []);
 
@@ -215,6 +176,16 @@ const SearchCustomer = () => {
                         </p>
                       </div>
                       
+                      <div>
+                        <Label className="text-muted-foreground">Email</Label>
+                        <p className="text-foreground font-medium">{customer.email || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground">Address</Label>
+                        <p className="text-foreground font-medium">{customer.address || "N/A"}</p>
+                      </div>
+
                       <div>
                         <Label className="text-muted-foreground">Color</Label>
                         <p className="text-foreground font-medium">{customer.color || "N/A"}</p>
