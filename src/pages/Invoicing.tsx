@@ -4,11 +4,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Printer, Save, Trash2 } from "lucide-react";
+import { FileText, Printer, Save, Trash2, DollarSign } from "lucide-react";
 import { getInvoices, upsertInvoice, getCustomers, deleteInvoice } from "@/lib/db";
 import { Customer } from "@/components/customers/CustomerModal";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { PaymentDialog } from "@/components/invoicing/PaymentDialog";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,9 @@ interface Invoice {
   total: number;
   date: string;
   createdAt: string;
+  paymentStatus?: "unpaid" | "partially-paid" | "paid";
+  paidAmount?: number;
+  paidDate?: string;
 }
 
 const Invoicing = () => {
@@ -46,10 +50,12 @@ const Invoicing = () => {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [services, setServices] = useState<{ name: string; price: number }[]>([]);
   const [newService, setNewService] = useState({ name: "", price: "" });
-const [dateFilter, setDateFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [paymentDialog, setPaymentDialog] = useState<Invoice | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
 
   useEffect(() => {
     loadData();
@@ -138,7 +144,7 @@ const [dateFilter, setDateFilter] = useState("all");
     loadData();
   };
 
-const filterInvoices = () => {
+  const filterInvoices = () => {
     const now = new Date();
     return invoices.filter(inv => {
       const invDate = new Date(inv.createdAt);
@@ -153,6 +159,45 @@ const filterInvoices = () => {
 
       return passQuick && passRange;
     });
+  };
+
+  const totalOutstanding = filterInvoices()
+    .filter(inv => (inv.paymentStatus || "unpaid") !== "paid")
+    .reduce((sum, inv) => sum + (inv.total - (inv.paidAmount || 0)), 0);
+
+  const updatePayment = async () => {
+    if (!paymentDialog || !paymentAmount) return;
+    const paid = parseFloat(paymentAmount);
+    const newPaidAmount = (paymentDialog.paidAmount || 0) + paid;
+    const newStatus: "unpaid" | "partially-paid" | "paid" = 
+      newPaidAmount >= paymentDialog.total ? "paid" : newPaidAmount > 0 ? "partially-paid" : "unpaid";
+    
+    await upsertInvoice({
+      ...paymentDialog,
+      paidAmount: newPaidAmount,
+      paymentStatus: newStatus,
+      paidDate: new Date().toISOString()
+    });
+    
+    await loadData();
+    setPaymentDialog(null);
+    setPaymentAmount("");
+    toast({ title: "Payment Recorded", description: "Invoice payment updated." });
+  };
+
+  const generateListPDF = (download = false) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Invoice List", 20, 20);
+    let y = 35;
+    filterInvoices().forEach((inv) => {
+      doc.setFontSize(10);
+      const status = inv.paymentStatus || "unpaid";
+      doc.text(`${inv.customerName} | $${inv.total} | ${status.toUpperCase()} | ${inv.date}`, 20, y);
+      y += 7;
+      if (y > 280) { doc.addPage(); y = 20; }
+    });
+    if (download) doc.save("invoices.pdf"); else window.open(doc.output('bloburl'), '_blank');
   };
 
   return (
@@ -175,12 +220,31 @@ const filterInvoices = () => {
                 </SelectContent>
               </Select>
               <DateRangeFilter value={dateRange} onChange={setDateRange} storageKey="invoices-range" />
+              <Button variant="outline" size="sm" onClick={() => generateListPDF(false)}>
+                <Printer className="h-4 w-4 mr-2" />Print
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => generateListPDF(true)}>
+                <Save className="h-4 w-4 mr-2" />Save PDF
+              </Button>
               <Button onClick={() => setShowCreateForm(!showCreateForm)} className="bg-gradient-hero w-full md:w-auto">
                 <FileText className="h-4 w-4 mr-2" />
                 {showCreateForm ? "Cancel" : "Create Invoice"}
               </Button>
             </div>
           </div>
+
+          {/* Outstanding Balance */}
+          <Card className="p-6 bg-gradient-card border-border">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-destructive/20 rounded-lg">
+                <DollarSign className="h-6 w-6 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Outstanding Balance</p>
+                <h3 className="text-2xl font-bold text-foreground">${totalOutstanding.toFixed(2)}</h3>
+              </div>
+            </div>
+          </Card>
 
           {showCreateForm && (
             <Card className="p-6 bg-gradient-card border-border">
@@ -259,17 +323,33 @@ const filterInvoices = () => {
                       ))}
                     </div>
                     <p className="text-lg font-bold text-primary mt-2">Total: ${inv.total.toFixed(2)}</p>
+                    <p className={`text-sm font-medium mt-1 ${
+                      (inv.paymentStatus || "unpaid") === "paid" ? "text-success" :
+                      (inv.paymentStatus || "unpaid") === "partially-paid" ? "text-yellow-500" :
+                      "text-destructive"
+                    }`}>
+                      {(inv.paymentStatus || "unpaid").replace("-", " ").toUpperCase()}
+                      {inv.paidAmount && inv.paidAmount > 0 ? ` ($${inv.paidAmount.toFixed(2)} paid)` : ""}
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="icon" variant="outline" onClick={() => generatePDF(inv, false)}>
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="outline" onClick={() => generatePDF(inv, true)}>
-                      <Save className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => setDeleteId(inv.id!)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <Button size="icon" variant="outline" onClick={() => generatePDF(inv, false)}>
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="outline" onClick={() => generatePDF(inv, true)}>
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setDeleteId(inv.id!)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {(inv.paymentStatus || "unpaid") !== "paid" && (
+                      <Button size="sm" onClick={() => setPaymentDialog(inv)}>
+                        <DollarSign className="h-4 w-4 mr-1" />
+                        Record Payment
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -292,6 +372,15 @@ const filterInvoices = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PaymentDialog
+        open={paymentDialog !== null}
+        onOpenChange={(open) => !open && setPaymentDialog(null)}
+        invoice={paymentDialog}
+        paymentAmount={paymentAmount}
+        setPaymentAmount={setPaymentAmount}
+        onConfirm={updatePayment}
+      />
     </div>
   );
 };

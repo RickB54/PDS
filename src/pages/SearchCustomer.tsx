@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import CustomerModal from "@/components/customers/CustomerModal";
 import { getCustomers, upsertCustomer, deleteCustomer as removeCustomer, purgeTestCustomers } from "@/lib/db";
-import { Search, Pencil, Trash2, Plus, Printer, Save } from "lucide-react";
+import { Search, Pencil, Trash2, Plus, Printer, Save, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +115,38 @@ const filterByDate = (customer: Customer) => {
     setDeleteCustomerId(null);
   };
 
+  const generatePDF = (download = false) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Customer List", 20, 20);
+    let y = 35;
+    filteredCustomers.forEach((c) => {
+      doc.setFontSize(12);
+      doc.text(`${c.name} | ${c.phone} | ${c.email || '-'} | ${c.year} ${c.vehicle} ${c.model}`, 20, y);
+      y += 7;
+      if (y > 280) { doc.addPage(); y = 20; }
+    });
+    if (download) doc.save("customers.pdf"); else window.open(doc.output('bloburl'), '_blank');
+  };
+
+  const [expandedCustomers, setExpandedCustomers] = useState<string[]>([]);
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  const toggleCustomer = (id: string) => {
+    setExpandedCustomers(prev => 
+      prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedCustomers([]);
+    } else {
+      setExpandedCustomers(filteredCustomers.map(c => c.id!));
+    }
+    setAllExpanded(!allExpanded);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <PageHeader title="Customer Info" />
@@ -150,6 +183,24 @@ const filterByDate = (customer: Customer) => {
                 </div>
               </div>
               
+              {filteredCustomers.length > 0 && (
+                <div className="flex gap-2 items-center">
+                  <Button variant="outline" size="sm" onClick={toggleAll}>
+                    {allExpanded ? (
+                      <>
+                        <ChevronsUp className="h-4 w-4 mr-2" />
+                        Collapse All
+                      </>
+                    ) : (
+                      <>
+                        <ChevronsDown className="h-4 w-4 mr-2" />
+                        Expand All
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+              
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -164,107 +215,123 @@ const filterByDate = (customer: Customer) => {
 
           {/* Customer List */}
           <div className="space-y-4">
-            {filteredCustomers.map((customer) => (
-              <Card key={customer.id} className="p-6 bg-gradient-card border-border hover:shadow-glow transition-all">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-foreground">{customer.name}</h3>
-                        <p className="text-muted-foreground">{customer.phone}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(customer)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteCustomerId(customer.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-muted-foreground">Vehicle</Label>
-                        <p className="text-foreground font-medium">
-                          {customer.year} {customer.vehicle} {customer.model}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <Label className="text-muted-foreground">Email</Label>
-                        <p className="text-foreground font-medium">{customer.email || "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Address</Label>
-                        <p className="text-foreground font-medium">{customer.address || "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Color</Label>
-                        <p className="text-foreground font-medium">{customer.color || "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Mileage</Label>
-                        <p className="text-foreground font-medium">{customer.mileage ? `${customer.mileage} miles` : "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Vehicle Type</Label>
-                        <p className="text-foreground font-medium">{customer.vehicleType || "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Last Service</Label>
-                        <p className="text-foreground font-medium">{customer.lastService}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Condition (Inside)</Label>
-                        <p className="text-foreground font-medium">{customer.conditionInside || "N/A"}</p>
-                      </div>
-
-                      <div>
-                        <Label className="text-muted-foreground">Condition (Outside)</Label>
-                        <p className="text-foreground font-medium">{customer.conditionOutside || "N/A"}</p>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <Label className="text-muted-foreground">Services</Label>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {customer.services.map((service, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-1 bg-primary/20 text-primary text-xs rounded-full"
-                            >
-                              {service}
-                            </span>
-                          ))}
+            {filteredCustomers.map((customer) => {
+              const isExpanded = expandedCustomers.includes(customer.id!);
+              return (
+                <Card key={customer.id} className="bg-gradient-card border-border hover:shadow-glow transition-all">
+                  <Collapsible open={isExpanded} onOpenChange={() => toggleCustomer(customer.id!)}>
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <CollapsibleTrigger className="flex-1 text-left">
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? (
+                              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                            )}
+                            <div>
+                              <h3 className="text-xl font-bold text-foreground">{customer.name}</h3>
+                              <p className="text-muted-foreground">{customer.phone}</p>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(customer)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteCustomerId(customer.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
 
-                      <div>
-                        <Label className="text-muted-foreground">Duration</Label>
-                        <p className="text-foreground font-medium">{customer.duration}</p>
-                      </div>
-                    </div>
+                      <CollapsibleContent className="mt-4">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-muted-foreground">Vehicle</Label>
+                              <p className="text-foreground font-medium">
+                                {customer.year} {customer.vehicle} {customer.model}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-muted-foreground">Email</Label>
+                              <p className="text-foreground font-medium">{customer.email || "N/A"}</p>
+                            </div>
 
-                    {customer.notes && (
-                      <div>
-                        <Label className="text-muted-foreground">Notes</Label>
-                        <p className="text-foreground">{customer.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
+                            <div>
+                              <Label className="text-muted-foreground">Address</Label>
+                              <p className="text-foreground font-medium">{customer.address || "N/A"}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Color</Label>
+                              <p className="text-foreground font-medium">{customer.color || "N/A"}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Mileage</Label>
+                              <p className="text-foreground font-medium">{customer.mileage ? `${customer.mileage} miles` : "N/A"}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Vehicle Type</Label>
+                              <p className="text-foreground font-medium">{customer.vehicleType || "N/A"}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Last Service</Label>
+                              <p className="text-foreground font-medium">{customer.lastService}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Condition (Inside)</Label>
+                              <p className="text-foreground font-medium">{customer.conditionInside || "N/A"}</p>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Condition (Outside)</Label>
+                              <p className="text-foreground font-medium">{customer.conditionOutside || "N/A"}</p>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <Label className="text-muted-foreground">Services</Label>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {customer.services.map((service, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-primary/20 text-primary text-xs rounded-full"
+                                  >
+                                    {service}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label className="text-muted-foreground">Duration</Label>
+                              <p className="text-foreground font-medium">{customer.duration}</p>
+                            </div>
+                          </div>
+
+                          {customer.notes && (
+                            <div>
+                              <Label className="text-muted-foreground">Notes</Label>
+                              <p className="text-foreground">{customer.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                </Card>
+              );
+            })}
           </div>
 
           {filteredCustomers.length === 0 && (
@@ -298,19 +365,5 @@ const filterByDate = (customer: Customer) => {
     </div>
   );
 };
-
-function generatePDF(download = false) {
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text("Customer List", 20, 20);
-  let y = 35;
-  filteredCustomers.forEach((c) => {
-    doc.setFontSize(12);
-    doc.text(`${c.name} | ${c.phone} | ${c.email || '-'} | ${c.year} ${c.vehicle} ${c.model}`, 20, y);
-    y += 7;
-    if (y > 280) { doc.addPage(); y = 20; }
-  });
-  if (download) doc.save("customers.pdf"); else window.open(doc.output('bloburl'), '_blank');
-}
 
 export default SearchCustomer;
