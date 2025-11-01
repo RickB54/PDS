@@ -6,7 +6,6 @@ import {
   Calculator, 
   BookOpen, 
   Users, 
-  Truck,
   Settings,
   Package,
   FileBarChart
@@ -23,9 +22,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import logo from "@/assets/prime-logo.png";
+import { getCurrentUser } from "@/lib/auth";
+import logo from "@/assets/logo-3inch.png";
 
-const menuItems = [
+const adminItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Service Checklist", url: "/checklist", icon: ClipboardCheck },
   { title: "Customer Info", url: "/customers", icon: Search },
@@ -34,12 +34,23 @@ const menuItems = [
   { title: "Accounting", url: "/accounting", icon: Calculator },
   { title: "Reports", url: "/reports", icon: FileBarChart },
   { title: "Training Manual", url: "/training", icon: BookOpen },
-  { title: "Employee Dashboard", url: "/employees", icon: Users },
+  { title: "Employee Dashboard", url: "/employee-dashboard", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
+];
+
+const employeeItems = [
+  { title: "Home", url: "/", icon: Home },
+  { title: "Service Checklist", url: "/checklist", icon: ClipboardCheck },
+  { title: "Customer Info", url: "/customers", icon: Search },
+  { title: "Training Manual", url: "/training", icon: BookOpen },
+  { title: "Employee Dashboard", url: "/employee-dashboard", icon: Users },
 ];
 
 export function AppSidebar() {
   const { open, setOpenMobile } = useSidebar();
+  const user = getCurrentUser();
+  
+  const menuItems = user?.role === 'admin' ? adminItems : user?.role === 'employee' ? employeeItems : [];
 
   const handleNavClick = () => {
     setOpenMobile(false);
