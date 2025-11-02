@@ -8,15 +8,14 @@ import {
   Users, 
   Settings,
   Package,
-  FileBarChart
+  FileBarChart,
+  DollarSign,
+  LayoutDashboard
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -25,32 +24,12 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import logo from "@/assets/logo-3inch.png";
 
-const adminItems = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Service Checklist", url: "/checklist", icon: ClipboardCheck },
-  { title: "Customer Info", url: "/customers", icon: Search },
-  { title: "Inventory Control", url: "/inventory", icon: Package },
-  { title: "Invoicing", url: "/invoicing", icon: FileText },
-  { title: "Accounting", url: "/accounting", icon: Calculator },
-  { title: "Reports", url: "/reports", icon: FileBarChart },
-  { title: "Training Manual", url: "/training", icon: BookOpen },
-  { title: "Employee Dashboard", url: "/employee-dashboard", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
-
-const employeeItems = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Service Checklist", url: "/checklist", icon: ClipboardCheck },
-  { title: "Customer Info", url: "/customers", icon: Search },
-  { title: "Training Manual", url: "/training", icon: BookOpen },
-  { title: "Employee Dashboard", url: "/employee-dashboard", icon: Users },
-];
-
 export function AppSidebar() {
   const { open, setOpenMobile } = useSidebar();
   const user = getCurrentUser();
-  
-  const menuItems = user?.role === 'admin' ? adminItems : user?.role === 'employee' ? employeeItems : [];
+  const isAdmin = user?.role === 'admin';
+  const isEmployee = user?.role === 'employee';
+  const isCustomer = user?.role === 'customer';
 
   const handleNavClick = () => {
     setOpenMobile(false);
@@ -58,48 +37,159 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-border">
-      <SidebarContent>
-        <div className="p-4 border-b border-border">
-          {open && (
-            <div className="flex items-center gap-3 animate-fade-in">
-              <img src={logo} alt="Prime Detail Solutions" className="w-10 h-10" />
-              <div>
-                <h2 className="font-bold text-foreground">Prime Detail</h2>
-                <p className="text-xs text-muted-foreground">Solutions</p>
-              </div>
+      <div className="p-4 border-b border-border">
+        {open && (
+          <div className="flex items-center gap-3 animate-fade-in">
+            <img src={logo} alt="Prime Detail Solutions" className="w-10 h-10" />
+            <div>
+              <h2 className="font-bold text-foreground">Prime Detail</h2>
+              <p className="text-xs text-muted-foreground">Solutions</p>
             </div>
-          )}
-          {!open && (
-            <img src={logo} alt="Prime Detail Solutions" className="w-8 h-8 mx-auto" />
-          )}
-        </div>
+          </div>
+        )}
+        {!open && (
+          <img src={logo} alt="Prime Detail Solutions" className="w-8 h-8 mx-auto" />
+        )}
+      </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      onClick={handleNavClick}
-                      className={({ isActive }) =>
-                        isActive
-                          ? "bg-primary/20 text-primary font-medium border-l-2 border-primary"
-                          : "hover:bg-muted/50"
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent>
+        <SidebarMenu>
+          {isCustomer && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild onClick={handleNavClick}>
+                <Link to="/customer-dashboard">
+                  <Home className="h-4 w-4" />
+                  <span>My Account</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {(isAdmin || isEmployee) && (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/">
+                    <Home className="h-4 w-4" />
+                    <span>Home</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/checklist">
+                    <ClipboardCheck className="h-4 w-4" />
+                    <span>Service Checklist</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/search-customer">
+                    <Users className="h-4 w-4" />
+                    <span>Find Customer</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/service-checklist">
+                    <DollarSign className="h-4 w-4" />
+                    <span>Package Pricing</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/training-manual">
+                    <BookOpen className="h-4 w-4" />
+                    <span>Training Manual</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/employee-dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Employee Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
+
+          {isAdmin && (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/invoicing">
+                    <FileText className="h-4 w-4" />
+                    <span>Invoicing</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/accounting">
+                    <Calculator className="h-4 w-4" />
+                    <span>Accounting</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/inventory-control">
+                    <Package className="h-4 w-4" />
+                    <span>Inventory Control</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/company-employees">
+                    <Users className="h-4 w-4" />
+                    <span>Company Employees</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/file-manager">
+                    <FileText className="h-4 w-4" />
+                    <span>File Manager</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/reports">
+                    <FileBarChart className="h-4 w-4" />
+                    <span>Reports</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <Link to="/settings">
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
+        </SidebarMenu>
       </SidebarContent>
     </Sidebar>
   );

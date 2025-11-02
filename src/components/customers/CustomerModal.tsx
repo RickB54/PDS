@@ -23,6 +23,8 @@ export interface Customer {
   lastService: string;
   duration: string;
   notes: string;
+  howFound?: string;
+  howFoundOther?: string;
 }
 
 interface Props {
@@ -51,6 +53,8 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
     lastService: "",
     duration: "",
     notes: "",
+    howFound: "",
+    howFoundOther: "",
   });
 
   useEffect(() => {
@@ -171,6 +175,32 @@ export default function CustomerModal({ open, onOpenChange, initial, onSave }: P
             <Label htmlFor="duration">Duration</Label>
             <Input id="duration" value={form.duration} onChange={(e) => handleChange("duration", e.target.value)} placeholder="e.g., 2 hours" />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="howFound">How Customer Was Found</Label>
+            <select
+              id="howFound"
+              value={form.howFound || ""}
+              onChange={(e) => handleChange("howFound", e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Select...</option>
+              <option value="online">Online</option>
+              <option value="in-person">In Person</option>
+              <option value="on-the-job">On the Job</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          {form.howFound === "other" && (
+            <div className="space-y-2">
+              <Label htmlFor="howFoundOther">Please Specify</Label>
+              <Input 
+                id="howFoundOther" 
+                value={form.howFoundOther || ""} 
+                onChange={(e) => handleChange("howFoundOther", e.target.value)} 
+                placeholder="How did you find us?"
+              />
+            </div>
+          )}
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" value={form.notes} onChange={(e) => handleChange("notes", e.target.value)} className="min-h-[80px]" />

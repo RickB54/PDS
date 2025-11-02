@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import CustomerPortal from "./pages/CustomerPortal";
+import CustomerDashboard from "./pages/CustomerDashboard";
 import ServiceChecklist from "./pages/ServiceChecklist";
 import EmployeeChecklist from "./pages/EmployeeChecklist";
 import SearchCustomer from "./pages/SearchCustomer";
@@ -18,6 +19,8 @@ import Accounting from "./pages/Accounting";
 import Reports from "./pages/Reports";
 import TrainingManual from "./pages/TrainingManual";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import CompanyEmployees from "./pages/CompanyEmployees";
+import FileManager from "./pages/FileManager";
 import MobileSetup from "./pages/MobileSetup";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -49,67 +52,99 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/customer-portal" element={<CustomerPortal />} />
             
             <Route
               path="/*"
               element={
                 <SidebarProvider>
                   <div className="flex min-h-screen w-full">
-                    <AppSidebar />
+                    {user && <AppSidebar />}
                     <div className="flex-1">
                       <Routes>
-                        <Route path="/" element={<Index />} />
+                        <Route path="/" element={
+                          user?.role === 'customer' ? <CustomerPortal /> :
+                          user?.role === 'employee' || user?.role === 'admin' ? <Index /> :
+                          <Navigate to="/login" replace />
+                        } />
+                        
+                        <Route path="/customer-dashboard" element={
+                          <ProtectedRoute allowedRoles={['customer']}>
+                            <CustomerDashboard />
+                          </ProtectedRoute>
+                        } />
+                        
                         <Route path="/checklist" element={
                           <ProtectedRoute allowedRoles={['employee', 'admin']}>
                             <EmployeeChecklist />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/service-checklist" element={
-                          <ProtectedRoute allowedRoles={['admin']}>
+                          <ProtectedRoute allowedRoles={['employee', 'admin']}>
                             <ServiceChecklist />
                           </ProtectedRoute>
                         } />
-                        <Route path="/customers" element={
+                        
+                        <Route path="/search-customer" element={
                           <ProtectedRoute allowedRoles={['employee', 'admin']}>
                             <SearchCustomer />
                           </ProtectedRoute>
                         } />
-                        <Route path="/inventory" element={
+                        
+                        <Route path="/inventory-control" element={
                           <ProtectedRoute allowedRoles={['admin']}>
                             <InventoryControl />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/invoicing" element={
                           <ProtectedRoute allowedRoles={['admin']}>
                             <Invoicing />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/accounting" element={
                           <ProtectedRoute allowedRoles={['admin']}>
                             <Accounting />
                           </ProtectedRoute>
                         } />
+                        
+                        <Route path="/company-employees" element={
+                          <ProtectedRoute allowedRoles={['admin']}>
+                            <CompanyEmployees />
+                          </ProtectedRoute>
+                        } />
+                        
+                        <Route path="/file-manager" element={
+                          <ProtectedRoute allowedRoles={['admin']}>
+                            <FileManager />
+                          </ProtectedRoute>
+                        } />
+                        
                         <Route path="/reports" element={
                           <ProtectedRoute allowedRoles={['admin']}>
                             <Reports />
                           </ProtectedRoute>
                         } />
-                        <Route path="/training" element={
+                        
+                        <Route path="/training-manual" element={
                           <ProtectedRoute allowedRoles={['employee', 'admin']}>
                             <TrainingManual />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/employee-dashboard" element={
                           <ProtectedRoute allowedRoles={['employee', 'admin']}>
                             <EmployeeDashboard />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/mobile-setup" element={
                           <ProtectedRoute allowedRoles={['admin']}>
                             <MobileSetup />
                           </ProtectedRoute>
                         } />
+                        
                         <Route path="/settings" element={<Settings />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
