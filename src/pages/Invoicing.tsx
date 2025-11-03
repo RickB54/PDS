@@ -275,12 +275,12 @@ const Invoicing = () => {
           <Card className="p-4 bg-gradient-card border-border">
             <Label htmlFor="customer-filter" className="text-sm font-medium mb-2 block">Filter by Customer</Label>
             <div className="flex gap-2 items-center">
-              <Select value={filterCustomerId} onValueChange={setFilterCustomerId}>
+              <Select value={filterCustomerId || "all"} onValueChange={(val) => setFilterCustomerId(val === "all" ? "" : val)}>
                 <SelectTrigger id="customer-filter" className="flex-1">
                   <SelectValue placeholder="All Customers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Customers</SelectItem>
+                  <SelectItem value="all">All Customers</SelectItem>
                   {customers.map(c => (
                     <SelectItem key={c.id} value={c.id!}>{c.name}</SelectItem>
                   ))}
