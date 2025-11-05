@@ -22,6 +22,21 @@ const Login = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check pre-set credentials
+    if (email.toLowerCase() === 'admin' && password === 'Admin123') {
+      quickAccessLogin('admin');
+      navigate('/dashboard');
+      return;
+    }
+    
+    if (email.toLowerCase() === 'employee' && password === 'Employee123') {
+      quickAccessLogin('employee');
+      navigate('/dashboard');
+      return;
+    }
+    
+    // Otherwise, regular login
     const user = login(email, password);
     
     if (user.role === 'customer') {

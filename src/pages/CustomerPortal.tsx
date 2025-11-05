@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { servicePackages, addOns, VehicleType, getServicePrice, getAddOnPrice, calculateDestinationFee } from "@/lib/services";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
 
 const CustomerPortal = () => {
   const [vehicleType, setVehicleType] = useState<VehicleType>('compact');
@@ -31,7 +30,9 @@ const CustomerPortal = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Premium Auto Detailing Services" />
+      <div className="bg-gradient-hero py-8 mb-8">
+        <h1 className="text-4xl font-bold text-white text-center">Premium Auto Detailing Services</h1>
+      </div>
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Vehicle Type Selector - Centered */}
         <div className="flex justify-center mb-12">

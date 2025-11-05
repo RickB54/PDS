@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, UserCog } from "lucide-react";
 import { getCurrentUser, logout } from "@/lib/auth";
 import logo from "@/assets/logo-3inch.png";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -55,11 +61,21 @@ export const Navbar = () => {
                 Logout
               </Button>
             ) : (
-              <Link to="/login">
-                <Button variant="default" size="sm" className="bg-gradient-hero">
-                  Login
-                </Button>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="default" size="sm" className="bg-gradient-hero">
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Staff Login
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/login" className="w-full cursor-pointer">
+                      Access Portal
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
 
@@ -101,7 +117,8 @@ export const Navbar = () => {
               ) : (
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="default" size="sm" className="w-full bg-gradient-hero">
-                    Login
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Staff Login
                   </Button>
                 </Link>
               )}

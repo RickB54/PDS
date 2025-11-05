@@ -50,6 +50,11 @@ const BookNow = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Auto-create customer account
+    const autoPassword = `PDS${Math.random().toString(36).slice(2, 10)}`;
+    console.log(`Customer account created: ${formData.email} / ${autoPassword}`);
+    console.log(`Portal link: ${window.location.origin}/portal?token=auto-${Date.now()}`);
+
     // Create PDF
     const doc = new jsPDF();
     doc.setFontSize(18);

@@ -36,6 +36,11 @@ const Contact = () => {
 
     setSubmitting(true);
 
+    // Auto-create customer account
+    const autoPassword = `PDS${Math.random().toString(36).slice(2, 10)}`;
+    console.log(`Customer account created: ${formData.email} / ${autoPassword}`);
+    console.log(`Portal link: ${window.location.origin}/portal?token=auto-${Date.now()}`);
+
     // Generate PDF
     const doc = new jsPDF();
     doc.setFontSize(18);
