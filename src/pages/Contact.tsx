@@ -114,14 +114,19 @@ const Contact = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const c = await api('/api/contact/live', { method: 'GET' });
-        if (c && typeof c === 'object') {
-          setContactInfo({
-            hours: c.hours || 'Appointments daily 8 AM–6 PM',
-            phone: c.phone || '(555) 123-4567',
-            address: c.address || 'Methuen, MA',
-            email: c.email || 'primedetailsolutions.ma.nh@gmail.com',
-          });
+        const res = await fetch(`http://localhost:6061/api/contact/live?v=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+        if (res.ok) {
+          const c = await res.json();
+          if (c && typeof c === 'object') {
+            setContactInfo({
+              hours: c.hours || 'Appointments daily 8 AM–6 PM',
+              phone: c.phone || '(555) 123-4567',
+              address: c.address || 'Methuen, MA',
+              email: c.email || 'primedetailsolutions.ma.nh@gmail.com',
+            });
+          } else {
+            setContactInfo({ hours: 'Appointments daily 8 AM–6 PM', phone: '(555) 123-4567', address: 'Methuen, MA', email: 'primedetailsolutions.ma.nh@gmail.com' });
+          }
         } else {
           setContactInfo({ hours: 'Appointments daily 8 AM–6 PM', phone: '(555) 123-4567', address: 'Methuen, MA', email: 'primedetailsolutions.ma.nh@gmail.com' });
         }

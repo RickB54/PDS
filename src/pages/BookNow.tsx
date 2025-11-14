@@ -134,6 +134,17 @@ const BookNow = () => {
     return () => window.removeEventListener('content-changed', onChanged as any);
   }, []);
 
+  // Hard reload page when admin triggers force refresh (vehicle types changed)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'force-refresh') {
+        window.location.reload();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const allBuiltInSteps: Record<string, { id: string; name: string }> = Object.fromEntries(
     builtInPackages.flatMap(p => p.steps.map(s => [typeof s === 'string' ? s : s.id, typeof s === 'string' ? s : s.name]))
       .map(([id, name]) => [id as string, { id: id as string, name: name as string }])

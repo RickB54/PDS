@@ -98,17 +98,19 @@ export default function WebsiteAdministration() {
                     <TableRow key={vt.id}>
                       <TableCell className="text-white">{vt.name}</TableCell>
                       <TableCell className="text-zinc-300">{vt.description || '—'}</TableCell>
-                      <TableCell>
+                    <TableCell>
                         <Button size="sm" variant="outline" className="border-red-700 text-red-700 hover:bg-red-700/10" onClick={() => setEditVehicle(vt)}>Edit</Button>
                       </TableCell>
                       <TableCell>
                         <Button size="sm" variant="outline" className="border-red-700 text-red-700 hover:bg-red-700/10" disabled={vt.protected} onClick={async () => {
-                          if (!confirm('Delete this vehicle type?')) return;
+                          if (!confirm('Delete this vehicle type? (removes from all dropdowns + pricing)')) return;
                           await api(`/api/vehicle-types/${vt.id}`, { method: 'DELETE' });
                           const updated = await api('/api/vehicle-types', { method: 'GET' });
                           setVehicleTypes(Array.isArray(updated) ? updated : []);
                           try { await postFullSync(); } catch {}
                           try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
+                          try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}
+                          try { localStorage.setItem('force-refresh', String(Date.now())); } catch {}
                           toast({ title: 'Vehicle type deleted', description: vt.name });
                         }}>Delete</Button>
                       </TableCell>
@@ -256,14 +258,35 @@ export default function WebsiteAdministration() {
               <div className="space-y-3">
                 <Input className="bg-zinc-800 border-zinc-700 text-white" value={editVehicle.name} onChange={(e) => setEditVehicle({ ...editVehicle, name: e.target.value })} placeholder="Name" />
                 <Input className="bg-zinc-800 border-zinc-700 text-white" value={editVehicle.description || ''} onChange={(e) => setEditVehicle({ ...editVehicle, description: e.target.value })} placeholder="Description" />
+                <div>
+                  <label className="text-sm text-zinc-400">$ Amount — Multiplier for packages/add-ons</label>
+                  <Input
+                    type="number"
+                    step={1}
+                    min={0}
+                    max={10000}
+                    className="bg-zinc-800 border-red-700 text-white placeholder:text-white"
+                    value={(editVehicle as any)?.multiplier ?? ''}
+                    onChange={(e) => setEditVehicle({ ...editVehicle, multiplier: e.target.value })}
+                    placeholder="$150"
+                  />
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" className="border-red-700 text-red-700 hover:bg-red-700/10" onClick={() => setEditVehicle(null)}>Cancel</Button>
                   <Button className="bg-red-700 hover:bg-red-800" onClick={async () => {
                     await api(`/api/vehicle-types/${editVehicle.id}`, { method: 'PUT', body: JSON.stringify({ name: editVehicle.name, description: editVehicle.description }) });
+                    // If a multiplier was provided, re-seed prices for this type
+                    const rawMult = Math.round(Number((editVehicle as any)?.multiplier ?? NaN));
+                    if (Number.isFinite(rawMult) && rawMult >= 0 && rawMult <= 10000) {
+                      await api('/api/packages/apply-vehicle-multiplier', { method: 'POST', body: JSON.stringify({ vehicleTypeId: editVehicle.id, multiplier: rawMult }) });
+                    }
                     const updated = await api('/api/vehicle-types', { method: 'GET' });
                     setVehicleTypes(Array.isArray(updated) ? updated : []);
                     try { await postFullSync(); } catch {}
                     try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
+                    try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}
+                    // Force refresh Service and Book Now pages in other tabs
+                    try { localStorage.setItem('force-refresh', String(Date.now())); } catch {}
                     setEditVehicle(null);
                     toast({ title: 'Vehicle type updated' });
                   }}>Save</Button>
@@ -340,6 +363,8 @@ export default function WebsiteAdministration() {
                   try { await postFullSync(); } catch {}
                   try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
                   try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}
+                  // Force refresh Service and Book Now pages in other tabs
+                  try { localStorage.setItem('force-refresh', String(Date.now())); } catch {}
                   setNewVehicleName('');
                   setNewVehicleDesc('');
                   setNewVehicleMultiplier('100');

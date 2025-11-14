@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { toast as uiToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
-import { servicePackages as builtInPackages, addOns as builtInAddOns, VehicleType } from "@/lib/services";
+import { servicePackages as builtInPackages, addOns as builtInAddOns } from "@/lib/services";
 import {
   getPackageMeta,
   setPackageMeta,
@@ -86,24 +86,28 @@ export default function PackagePricing() {
   const [newPkgForm, setNewPkgForm] = useState({
     name: "",
     description: "",
-    pricing: { compact: "", midsize: "", truck: "", luxury: "" },
+    // dynamic pricing inputs keyed by vehicle type id
+    pricing: { compact: "", midsize: "", truck: "", luxury: "" } as Record<string, string>,
     imageDataUrl: "",
   });
   const [newAddonForm, setNewAddonForm] = useState({
     name: "",
-    pricing: { compact: "", midsize: "", truck: "", luxury: "" },
+    // dynamic pricing inputs keyed by vehicle type id
+    pricing: { compact: "", midsize: "", truck: "", luxury: "" } as Record<string, string>,
   });
   const [viewAllOpen, setViewAllOpen] = useState(false);
   const [liveSnapshot, setLiveSnapshot] = useState<any>(null);
-  const [vehicleType, setVehicleType] = useState<VehicleType>("compact");
-  const vehicleLabels: Record<VehicleType, string> = {
+  const builtInSizes: string[] = ["compact", "midsize", "truck", "luxury"];
+  const [vehicleType, setVehicleType] = useState<string>("compact");
+  const [vehicleOptions, setVehicleOptions] = useState<string[]>(builtInSizes);
+  const [vehicleLabels, setVehicleLabels] = useState<Record<string, string>>({
     compact: "Compact",
     midsize: "Midsize",
     truck: "Truck",
     luxury: "Luxury",
-  };
+  });
 
-  const getKey = (type: "package" | "addon", id: string, size: keyof Pricing) => `${type}:${id}:${size}`;
+  const getKey = (type: "package" | "addon", id: string, size: string) => `${type}:${id}:${size}`;
   const shouldUpdate = (key: string, target: "packages" | "addons" | "both") => {
     if (target === "both") return true;
     if (target === "packages") return key.startsWith("package:");
@@ -227,7 +231,7 @@ export default function PackagePricing() {
     setViewAllOpen(true);
   };
 
-  const liveGetKey = (type: 'package'|'addon', id: string, size: VehicleType) => `${type}:${id}:${size}`;
+  const liveGetKey = (type: 'package'|'addon', id: string, size: string) => `${type}:${id}:${size}`;
 
   const downloadPricesJSON = async () => {
     const now = new Date().toISOString().split('T')[0];
@@ -398,6 +402,39 @@ export default function PackagePricing() {
     load();
   }, []);
 
+  // Load dynamic vehicle types for selector
+  useEffect(() => {
+    const loadVehicleTypes = async () => {
+      try {
+        const res = await fetch(`http://localhost:6061/api/vehicle-types/live?v=${Date.now()}`, {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const opts = data.map((v: any) => v.id).filter(Boolean);
+            const map: Record<string, string> = {};
+            data.forEach((v: any) => { if (v?.id) map[v.id] = v?.name || v.id; });
+            map.compact = map.compact || 'Compact';
+            map.midsize = map.midsize || 'Midsize';
+            map.truck = map.truck || 'Truck';
+            map.luxury = map.luxury || 'Luxury';
+            setVehicleLabels(map);
+            setVehicleOptions(opts.length ? opts : builtInSizes);
+            // ensure current selection is valid
+            if (!opts.includes(vehicleType)) setVehicleType(opts[0] || 'compact');
+          }
+        }
+      } catch {}
+    };
+    loadVehicleTypes();
+    const onChanged = (e: any) => {
+      if (e && e.detail && (e.detail.kind === 'vehicle-types' || e.detail.type === 'vehicle-types')) loadVehicleTypes();
+    };
+    window.addEventListener('content-changed', onChanged as any);
+    return () => window.removeEventListener('content-changed', onChanged as any);
+  }, [vehicleType]);
+
   const handleChange = (key: string, value: string) => {
     let num = parseFloat(value);
     if (isNaN(num)) num = 0;
@@ -409,7 +446,7 @@ export default function PackagePricing() {
 
   const applyIncrease = (id: string, percent: number) => {
     const factor = 1 + percent / 100;
-    const sizes: (keyof Pricing)[] = ["compact", "midsize", "truck", "luxury"];
+    const sizes: string[] = builtInSizes;
     const updated: PriceMap = { ...currentPrices };
     sizes.forEach(size => {
       const key = getKey("package", id, size);
@@ -420,7 +457,7 @@ export default function PackagePricing() {
   };
 
   const reset = (id: string) => {
-    const sizes: (keyof Pricing)[] = ["compact", "midsize", "truck", "luxury"];
+    const sizes: string[] = builtInSizes;
     const updated: PriceMap = { ...currentPrices };
     sizes.forEach(size => {
       const key = getKey("package", id, size);
@@ -727,48 +764,63 @@ export default function PackagePricing() {
     const stepsUnion = [...builtInPackages.flatMap(p => p.steps)].reduce<Record<string, {id:string;name:string;category:'exterior'|'interior'|'final'}>>((acc, s) => { acc[s.id] = s; return acc; }, {});
     const defaultSteps = Object.values(stepsUnion).slice(0, 8); // pick some defaults
     const pricing = {
-      compact: Math.ceil(parseFloat(newPkgForm.pricing.compact) || 0),
-      midsize: Math.ceil(parseFloat(newPkgForm.pricing.midsize) || 0),
-      truck: Math.ceil(parseFloat(newPkgForm.pricing.truck) || 0),
-      luxury: Math.ceil(parseFloat(newPkgForm.pricing.luxury) || 0),
+      compact: Math.ceil(parseFloat(newPkgForm.pricing.compact || "") || 0),
+      midsize: Math.ceil(parseFloat(newPkgForm.pricing.midsize || "") || 0),
+      truck: Math.ceil(parseFloat(newPkgForm.pricing.truck || "") || 0),
+      luxury: Math.ceil(parseFloat(newPkgForm.pricing.luxury || "") || 0),
     };
     saveCustomPackage({ id, name: newPkgForm.name || 'New Package', description: newPkgForm.description || '', pricing, steps: defaultSteps });
     // New packages default OFF on live site
     if (newPkgForm.imageDataUrl) setPackageMeta(id, { imageDataUrl: newPkgForm.imageDataUrl, visible: false }); else setPackageMeta(id, { visible: false });
     setAddPackageOpen(false);
-    setNewPkgForm({ name: '', description: '', pricing: { compact: '', midsize: '', truck: '', luxury: '' }, imageDataUrl: '' });
+    // Insert entered prices for all live vehicle options into savedPrices/currentPrices
+    const updatedPrices: PriceMap = { ...savedPrices };
+    vehicleOptions.forEach(sz => {
+      const entered = Math.ceil(parseFloat(newPkgForm.pricing[sz] || "") || 0);
+      updatedPrices[getKey('package', id, sz)] = String(entered);
+    });
+    setSavedPrices(updatedPrices);
+    setCurrentPrices(updatedPrices);
+    await saveToLocalforage(updatedPrices);
+    await saveToBackend(updatedPrices);
     await postFullSync();
     forceWebsiteTabRefresh();
     forceBookNowTabRefresh();
     openPackagesLiveInBrowser();
     toast.success("New package added and synced");
-    // Reload current prices
-    const reload = seedFromDefinitions();
-    setSavedPrices(reload);
-    setCurrentPrices(reload);
+    // Reset form fields
+    setNewPkgForm({ name: '', description: '', pricing: { compact: '', midsize: '', truck: '', luxury: '' }, imageDataUrl: '' });
   };
 
   const handleNewAddonSave = async () => {
     const id = `custom-addon-${Date.now()}`;
     const pricing = {
-      compact: Math.ceil(parseFloat(newAddonForm.pricing.compact) || 0),
-      midsize: Math.ceil(parseFloat(newAddonForm.pricing.midsize) || 0),
-      truck: Math.ceil(parseFloat(newAddonForm.pricing.truck) || 0),
-      luxury: Math.ceil(parseFloat(newAddonForm.pricing.luxury) || 0),
+      compact: Math.ceil(parseFloat(newAddonForm.pricing.compact || "") || 0),
+      midsize: Math.ceil(parseFloat(newAddonForm.pricing.midsize || "") || 0),
+      truck: Math.ceil(parseFloat(newAddonForm.pricing.truck || "") || 0),
+      luxury: Math.ceil(parseFloat(newAddonForm.pricing.luxury || "") || 0),
     };
     saveCustomAddOn({ id, name: newAddonForm.name || 'New Add-On', pricing });
     // New add-ons default OFF on live site
     setAddOnMeta(id, { visible: false });
     setAddAddonOpen(false);
-    setNewAddonForm({ name: '', pricing: { compact: '', midsize: '', truck: '', luxury: '' } });
+    // Insert entered prices for all live vehicle options into savedPrices/currentPrices
+    const updatedPrices: PriceMap = { ...savedPrices };
+    vehicleOptions.forEach(sz => {
+      const entered = Math.ceil(parseFloat(newAddonForm.pricing[sz] || "") || 0);
+      updatedPrices[getKey('addon', id, sz)] = String(entered);
+    });
+    setSavedPrices(updatedPrices);
+    setCurrentPrices(updatedPrices);
+    await saveToLocalforage(updatedPrices);
+    await saveToBackend(updatedPrices);
     await postFullSync();
     forceWebsiteTabRefresh();
     forceBookNowTabRefresh();
     openPackagesLiveInBrowser();
     toast.success("New add-on added and synced");
-    const reload = seedFromDefinitions();
-    setSavedPrices(reload);
-    setCurrentPrices(reload);
+    // Reset form fields
+    setNewAddonForm({ name: '', pricing: { compact: '', midsize: '', truck: '', luxury: '' } });
   };
 
   return (
@@ -834,15 +886,14 @@ export default function PackagePricing() {
             {/* Vehicle type selector */}
             <div className="flex items-center gap-2">
               <Label className="text-white">Vehicle</Label>
-              <Select value={vehicleType} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+              <Select value={vehicleType} onValueChange={(v) => setVehicleType(v)}>
                 <SelectTrigger className="w-40 bg-zinc-900 border-zinc-700 text-white">
                   <SelectValue placeholder="Select vehicle" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 text-white">
-                  <SelectItem value="compact">Compact</SelectItem>
-                  <SelectItem value="midsize">Midsize</SelectItem>
-                  <SelectItem value="truck">Truck</SelectItem>
-                  <SelectItem value="luxury">Luxury</SelectItem>
+                  {vehicleOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{vehicleLabels[opt] || opt}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -936,7 +987,7 @@ export default function PackagePricing() {
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground">{vehicleLabels[vehicleType]}</label>
+                  <label className="text-xs text-muted-foreground">{vehicleLabels[vehicleType] || vehicleType}</label>
                   <Input
                     type="number"
                     step="1"
@@ -1004,7 +1055,7 @@ export default function PackagePricing() {
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground">{vehicleLabels[vehicleType]}</label>
+                  <label className="text-xs text-muted-foreground">{vehicleLabels[vehicleType] || vehicleType}</label>
                   <Input
                     type="number"
                     step="1"
@@ -1015,7 +1066,7 @@ export default function PackagePricing() {
               </div>
               <div className="flex gap-2 flex-wrap max-w-full">
                 <Button variant="outline" onClick={() => {
-                  const sizes: (keyof Pricing)[] = ['compact','midsize','truck','luxury'];
+                  const sizes: string[] = builtInSizes;
                   const factor = 1 + (5/100);
                   const upd = { ...currentPrices };
                   sizes.forEach(sz => {
@@ -1026,7 +1077,7 @@ export default function PackagePricing() {
                   setCurrentPrices(upd);
                 }}>Apply 5%</Button>
                 <Button variant="outline" onClick={() => {
-                  const sizes: (keyof Pricing)[] = ['compact','midsize','truck','luxury'];
+                  const sizes: string[] = builtInSizes;
                   const factor = 1 + (10/100);
                   const upd = { ...currentPrices };
                   sizes.forEach(sz => {
@@ -1038,7 +1089,7 @@ export default function PackagePricing() {
                 }}>Apply 10%</Button>
                 
                 <Button variant="outline" onClick={() => {
-                  const sizes: (keyof Pricing)[] = ['compact','midsize','truck','luxury'];
+                  const sizes: string[] = builtInSizes;
                   const upd = { ...currentPrices };
                   sizes.forEach(sz => {
                     const key = getKey('addon', addon.id, sz);
@@ -1183,10 +1234,10 @@ export default function PackagePricing() {
                 <Input value={newPkgForm.description} onChange={(e) => setNewPkgForm(prev => ({ ...prev, description: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(['compact','midsize','truck','luxury'] as VehicleType[]).map(sz => (
+                {vehicleOptions.map(sz => (
                   <div key={sz}>
-                    <label className="text-xs text-muted-foreground">{vehicleLabels[sz]}</label>
-                    <Input type="number" value={newPkgForm.pricing[sz as keyof typeof newPkgForm.pricing]}
+                    <label className="text-xs text-muted-foreground">{vehicleLabels[sz] || sz}</label>
+                    <Input type="number" value={newPkgForm.pricing[sz] || ''}
                       onChange={(e) => setNewPkgForm(prev => ({ ...prev, pricing: { ...prev.pricing, [sz]: e.target.value } }))} />
                   </div>
                 ))}
@@ -1210,10 +1261,10 @@ export default function PackagePricing() {
                 <Input value={newAddonForm.name} onChange={(e) => setNewAddonForm(prev => ({ ...prev, name: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(['compact','midsize','truck','luxury'] as VehicleType[]).map(sz => (
+                {vehicleOptions.map(sz => (
                   <div key={sz}>
-                    <label className="text-xs text-muted-foreground">{vehicleLabels[sz]}</label>
-                    <Input type="number" value={newAddonForm.pricing[sz as keyof typeof newAddonForm.pricing]}
+                    <label className="text-xs text-muted-foreground">{vehicleLabels[sz] || sz}</label>
+                    <Input type="number" value={newAddonForm.pricing[sz] || ''}
                       onChange={(e) => setNewAddonForm(prev => ({ ...prev, pricing: { ...prev.pricing, [sz]: e.target.value } }))} />
                   </div>
                 ))}

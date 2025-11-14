@@ -141,6 +141,17 @@ const ServiceChecklist = () => {
     window.addEventListener('content-changed', onChanged as any);
     return () => window.removeEventListener('content-changed', onChanged as any);
   }, []);
+
+  // Hard reload page when admin triggers force refresh (vehicle types changed)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'force-refresh') {
+        window.location.reload();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   type ChecklistStep = { id: string; name: string; category: 'preparation' | 'exterior' | 'interior' | 'final'; checked: boolean };
   const [checklistSteps, setChecklistSteps] = useState<ChecklistStep[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});

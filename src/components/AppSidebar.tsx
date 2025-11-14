@@ -161,7 +161,11 @@ export function AppSidebar() {
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild onClick={handleNavClick}>
-                    <NavLink to="/website-admin" className={linkClass}>
+                    <NavLink
+                      to="/website-admin"
+                      className={({ isActive }: { isActive: boolean }) =>
+                        `flex items-center gap-2 ${isActive ? 'text-red-500 font-semibold' : 'text-red-600'} hover:text-red-700`}
+                    >
                       <Shield className="h-4 w-4" />
                       <span>Website Administration</span>
                     </NavLink>

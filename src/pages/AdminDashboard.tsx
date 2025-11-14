@@ -441,6 +441,15 @@ export default function AdminDashboard() {
   return (
     <div>
       <PageHeader title="Admin Dashboard" />
+      {/* Top-right Website Administration button (always visible) */}
+      <div className="px-4 max-w-screen-xl mx-auto flex justify-end mt-4">
+        <Link to="/website-admin">
+          <Button size="sm" className="bg-red-600 text-white hover:bg-red-700 gap-2">
+            <Shield className="h-4 w-4" />
+            Website Administration
+          </Button>
+        </Link>
+      </div>
       <div className="p-4 space-y-6 max-w-screen-xl mx-auto overflow-x-hidden">
         {/* Removed top-right Website Administration button; now a dashboard box below */}
         {/* Real-time Alerts banner with deep purple background */}
@@ -927,6 +936,8 @@ export default function AdminDashboard() {
                         // 5) Dispatch content-changed events so dropdowns refresh immediately
                         try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
                         try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}
+                        // 6) Force refresh Service and Book Now pages in other tabs
+                        try { localStorage.setItem('force-refresh', String(Date.now())); } catch {}
                         // Reset form
                         setNewVehicleName('');
                         setNewVehicleDesc('');
