@@ -17,7 +17,7 @@ import {
   GraduationCap,
   Shield
 } from "lucide-react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Sidebar,
@@ -37,6 +37,7 @@ import { isViewed } from "@/lib/viewTracker";
 
 export function AppSidebar() {
   const { open, setOpenMobile, setOpen } = useSidebar();
+  const location = useLocation();
   const user = getCurrentUser();
   const isAdmin = user?.role === 'admin';
   const isEmployee = user?.role === 'employee';
@@ -65,6 +66,11 @@ export function AppSidebar() {
     window.addEventListener('storage', onStorage as any);
     return () => window.removeEventListener('storage', onStorage as any);
   }, [refresh]);
+
+  // Auto-close the slide-out menu on any route change for more page space
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [location.pathname, setOpenMobile]);
   const todayStr = new Date().toISOString().split('T')[0];
   const requestFlags = (() => {
     try { return JSON.parse(localStorage.getItem('bookingRequestFlags') || '{}'); } catch { return {}; }
@@ -348,6 +354,17 @@ export function AppSidebar() {
                   {fileCount > 0 && (
                     <SidebarMenuBadge className="bg-red-600 text-white">{fileCount}</SidebarMenuBadge>
                   )}
+                </SidebarMenuItem>
+              )}
+
+              {!isHidden('jobs-completed') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild onClick={handleNavClick}>
+                    <NavLink to="/jobs-completed" className={linkClass}>
+                      <Search className="h-4 w-4" />
+                      <span>Jobs Completed</span>
+                    </NavLink>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
 

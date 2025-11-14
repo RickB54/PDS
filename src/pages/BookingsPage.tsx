@@ -39,11 +39,8 @@ const HOURS_END = 20; // Keep original slots through 8 PM; ensure 7 PM line show
 const SLOT_MINUTES = 30;
 
 type Tech = { id: string; name: string; initials: string };
-const DEFAULT_TECHS: Tech[] = [
-  { id: "tech-1", name: "John Doe", initials: "JD" },
-  { id: "tech-2", name: "Sarah P.", initials: "SP" },
-  { id: "tech-3", name: "Mike R.", initials: "MR" },
-];
+// Remove mock techs; default to empty so only real employees or self show
+const DEFAULT_TECHS: Tech[] = [];
 
 // LocalStorage helpers
 function loadBookingTimes(): Record<string, BookingTime> {
@@ -292,7 +289,8 @@ export default function BookingsPage() {
   }
 
   function WeekView() {
-    const columns = showMyOnly && techSelf ? [techSelf] : techs;
+    const columnsBase = showMyOnly && techSelf ? [techSelf] : techs;
+    const columns = columnsBase.length > 0 ? columnsBase : [{ id: 'unassigned', name: 'Unassigned', initials: 'UA' }];
     const totalMinutes = (HOURS_END - HOURS_START) * 60;
 
     return (

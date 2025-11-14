@@ -22,6 +22,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import localforage from "localforage";
 import api from "@/lib/api";
@@ -50,6 +51,7 @@ interface JobRecord {
 
 const CompanyEmployees = () => {
   const user = getCurrentUser();
+  const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [jobRecords, setJobRecords] = useState<JobRecord[]>([]);
@@ -78,14 +80,48 @@ const CompanyEmployees = () => {
   }, [user]);
 
   const loadEmployees = async () => {
-    const list = (await localforage.getItem<Employee[]>("company-employees")) || [
-      { email: 'employee@gmail.com', name: 'Employee User', role: 'Employee' }
-    ];
-    setEmployees(list);
+    // Pull unified employees via API and enrich with local company-specific details
+    const apiEmployees = (await api("/api/users/employees", { method: "GET" })) || [];
+    const lf = (await localforage.getItem<Employee[]>("company-employees")) || [];
+    const ls = (() => { try { return JSON.parse(localStorage.getItem('company-employees') || '[]'); } catch { return []; } })() as Employee[];
+    const localAll: Employee[] = [];
+    const addLocal = (e: Employee) => { if (!localAll.find(x => x.email === e.email)) localAll.push(e); };
+    lf.forEach(addLocal); ls.forEach(addLocal);
+
+    const localByEmail: Record<string, Employee> = Object.fromEntries(localAll.map(e => [e.email, e]));
+    const normRole = (r: any) => String(r || '').toLowerCase() === 'admin' ? 'Admin' : 'Employee';
+
+    const merged: Employee[] = [];
+    const seen = new Set<string>();
+    (Array.isArray(apiEmployees) ? apiEmployees : []).forEach((u: any) => {
+      const email = String(u.email || '').toLowerCase();
+      const local = localByEmail[email] || localByEmail[String(u.email || '')] || undefined;
+      const emp: Employee = {
+        email: u.email,
+        name: u.name || local?.name || u.email,
+        role: normRole(u.role || local?.role),
+        flatRate: local?.flatRate,
+        bonuses: local?.bonuses,
+        paymentByJob: local?.paymentByJob,
+        jobRates: local?.jobRates,
+      };
+      merged.push(emp);
+      seen.add(email);
+    });
+    // Include local-only employees not present in API list
+    localAll.forEach((e) => {
+      const emailKey = String(e.email || '').toLowerCase();
+      if (!seen.has(emailKey)) {
+        merged.push({ ...e, role: normRole(e.role) });
+      }
+    });
+    setEmployees(merged);
   };
 
   const saveEmployees = async (list: Employee[]) => {
+    // Persist to both localforage and localStorage to avoid driver issues
     await localforage.setItem("company-employees", list);
+    try { localStorage.setItem('company-employees', JSON.stringify(list)); } catch {}
     setEmployees(list);
   };
 
@@ -169,14 +205,26 @@ const CompanyEmployees = () => {
       paymentByJob: !!form.paymentByJob,
       jobRates: Object.fromEntries(Object.entries(form.jobRates || {}).filter(([_, v]) => v !== '' && !isNaN(parseFloat(v))).map(([k, v]) => [k, parseFloat(v)])),
     };
-    if (!payload.name || !payload.email) return;
+    // Basic validation with clear feedback
+    if (!payload.name) { toast({ title: 'Name required', description: 'Please enter a name.', variant: 'destructive' }); return; }
+    if (!payload.email) { toast({ title: 'Email required', description: 'Please enter an email.', variant: 'destructive' }); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.email)) { toast({ title: 'Invalid email', description: 'Enter a valid email address.', variant: 'destructive' }); return; }
+    if (user?.role !== 'admin') { toast({ title: 'Not allowed', description: 'Only admins can add employees.', variant: 'destructive' }); return; }
 
     // Immediate local update for reliability
     const existsIdx = employees.findIndex(e => e.email === payload.email);
     const next = [...employees];
-    if (existsIdx >= 0) next[existsIdx] = { ...next[existsIdx], ...payload }; else next.push(payload);
-    await saveEmployees(next);
-    setModalOpen(false);
+    let actionLabel = 'Employee added';
+    if (existsIdx >= 0) { next[existsIdx] = { ...next[existsIdx], ...payload }; actionLabel = 'Employee updated'; }
+    else { next.push(payload); }
+    try {
+      await saveEmployees(next);
+      setModalOpen(false);
+      toast({ title: 'Saved', description: actionLabel });
+    } catch (e:any) {
+      toast({ title: 'Save failed', description: e?.message || 'Could not persist employee.', variant: 'destructive' });
+      return;
+    }
 
     // Try syncing to API non-blocking
     try { await api('/api/employees', { method: 'POST', body: JSON.stringify(payload) }); } catch {}
@@ -240,6 +288,23 @@ const CompanyEmployees = () => {
             )}
           </Card>
 
+          {/* All Employees */}
+          <Card className="p-6 bg-gradient-card border-border">
+            <h2 className="text-xl font-bold text-foreground mb-4">All Employees</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {employees.map((emp) => (
+                <div key={emp.email} className="p-3 rounded border border-border">
+                  <p className="font-medium text-foreground">{emp.name}</p>
+                  <p className="text-sm text-muted-foreground">{emp.email}</p>
+                  <p className="text-xs text-muted-foreground">Role: {emp.role}</p>
+                </div>
+              ))}
+              {employees.length === 0 && (
+                <p className="text-sm text-muted-foreground">No employees saved yet.</p>
+              )}
+            </div>
+          </Card>
+
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-6 bg-gradient-card border-border">
@@ -281,7 +346,48 @@ const CompanyEmployees = () => {
             </Card>
           </div>
 
-          {/* Work History Table */}
+          {/* Selected Employee History */}
+          {selectedEmployee && (
+            <Card className="bg-gradient-card border-border">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-foreground mb-4">Selected Employee History</h2>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Job ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Vehicle</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredJobs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                          No work history found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredJobs.map((job) => (
+                        <TableRow key={job.jobId}>
+                          <TableCell className="font-mono text-sm">{job.jobId}</TableCell>
+                          <TableCell>{job.customer}</TableCell>
+                          <TableCell>{job.vehicle}</TableCell>
+                          <TableCell>{job.service}</TableCell>
+                          <TableCell>{job.totalTime || 'N/A'}</TableCell>
+                          <TableCell>{new Date(job.finishedAt).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          )}
+
+          {/* Work History Table (All / Filtered) */}
           <Card className="bg-gradient-card border-border">
             <div className="p-6">
               <h2 className="text-xl font-bold text-foreground mb-4">Work History</h2>

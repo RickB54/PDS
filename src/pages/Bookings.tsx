@@ -20,12 +20,7 @@ export default function Bookings() {
   const user = getCurrentUser();
   const canEdit = user?.role === 'admin';
 
-  useEffect(() => {
-    // Seed with a sample booking if empty
-    if (items.length === 0) {
-      add({ id: `b_${Date.now()}`, title: "Exterior Wash", date: formatDate(new Date()), status: "pending", customer: "" });
-    }
-  }, []);
+  // Remove sample booking seeding; show empty state until real bookings are added
 
   const start = startOfMonth(viewDate);
   const end = endOfMonth(viewDate);

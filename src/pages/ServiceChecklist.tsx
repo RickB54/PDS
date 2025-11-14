@@ -10,11 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown, ChevronUp, Save, FileText, Info, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import localforage from "localforage";
 import api from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 import { addEstimate, upsertCustomer, upsertInvoice, purgeTestCustomers, getInvoices } from "@/lib/db";
 import { getUnifiedCustomers } from "@/lib/customers";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
+import { pushAdminAlert } from "@/lib/adminAlerts";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CustomerModal, { Customer as CustomerType } from "@/components/customers/CustomerModal";
 import { servicePackages, addOns, getServicePrice, getAddOnPrice, VehicleType as VehKey } from "@/lib/services";
@@ -95,6 +97,17 @@ const ServiceChecklist = () => {
   const [savedPricesLive, setSavedPricesLive] = useState<Record<string,string>>({});
 
   const getKey = (type: 'package'|'addon', id: string, size: string) => `${type}:${id}:${size}`;
+
+  // Resolve a vehicle "key" from either an existing key slug or a human label.
+  // Always return one of the built-in keys for legacy pricing helpers.
+  const toVehKey = (value: string): VehKey => {
+    const builtIns: VehKey[] = ['compact','midsize','truck','luxury'];
+    const v = String(value || '').trim();
+    if ((builtIns as string[]).includes(v)) return v as VehKey;
+    const fromLabel = Object.keys(vehicleLabels).find(k => (vehicleLabels[k] || '').toLowerCase() === v.toLowerCase());
+    const key = fromLabel || v;
+    return toBuiltInVehKey(key);
+  };
 
   // Load live vehicle types
   useEffect(() => {
@@ -180,12 +193,24 @@ const [params] = useSearchParams();
       }
       // Load employees for assignment
       const emps = (await localforage.getItem('company-employees')) || [];
-      setEmployees(emps as any[]);
+      try {
+        const cur = getCurrentUser();
+        const listWithAdmin = Array.isArray(emps) ? [...(emps as any[])] : [];
+        if (cur && cur.role === 'admin') {
+          const hasAdmin = listWithAdmin.some((e: any) => String(e.name || e.id).toLowerCase() === 'admin');
+          if (!hasAdmin) {
+            listWithAdmin.unshift({ id: 'Admin', name: 'Admin', email: cur.email, role: 'admin' });
+          }
+        }
+        setEmployees(listWithAdmin as any[]);
+      } catch {
+        setEmployees(emps as any[]);
+      }
       // Load live add-ons via API
       const live = await api('/api/addons/live', { method: 'GET' });
       setLiveAddOns(Array.isArray(live) ? live : []);
       // Preselect default employee if present
-      const defaultEmp = (emps as any[])[0];
+      const defaultEmp = ((Array.isArray(emps) ? emps : []) as any[])[0];
       if (defaultEmp) setEmployeeAssigned(String(defaultEmp.id || defaultEmp.name || ''));
     })();
   }, [params]);
@@ -196,7 +221,7 @@ const [params] = useSearchParams();
       if (customer?.vehicleType) {
         // Attempt to map stored value to UI label
         const key = toVehKey(customer.vehicleType);
-        setVehicleType(KEY_TO_VEHICLE_UI[key]);
+        setVehicleType((vehicleOptions.includes(key) ? key : 'midsize'));
       }
       // Pre-check previous services from the latest invoice
       (async () => {
@@ -246,6 +271,8 @@ const [params] = useSearchParams();
 
   // Materials helpers
   const FRACTIONS: ChemRow['fraction'][] = ['1/8','1/4','3/8','1/2','5/8','3/4','7/8','1'];
+  const [chemSearch, setChemSearch] = useState<string>('');
+  const [matSearch, setMatSearch] = useState<string>('');
   const addChemicalRow = () => setChemRows(prev => ([...prev, { chemicalId: '', fraction: '', notes: '' }]));
   const updateChemicalRow = (idx: number, patch: Partial<ChemRow>) => setChemRows(prev => prev.map((r,i) => i===idx ? { ...r, ...patch } : r));
   const removeChemicalRow = (idx: number) => setChemRows(prev => prev.filter((_,i) => i!==idx));
@@ -275,6 +302,7 @@ const [params] = useSearchParams();
       .map(r => ({
         chemicalId: r.chemicalId,
         quantity: FRACTION_TO_NUM[r.fraction || ''] || 0,
+        notes: r.notes || '',
         serviceName,
         date: nowIso,
         employee: employeeAssigned || '',
@@ -288,6 +316,7 @@ const [params] = useSearchParams();
         return {
           materialId: r.materialId,
           quantity,
+          notes: r.quantityNote || '',
           serviceName,
           date: nowIso,
           employee: employeeAssigned || '',
@@ -296,7 +325,7 @@ const [params] = useSearchParams();
       .filter(i => i.quantity > 0);
     const items = [...chemItems, ...matItems];
     try {
-      const res = await api('/api/checklist/materials', { method: 'POST', body: JSON.stringify(items) });
+      const res = await api('/api/checklist/materials', { method: 'POST', body: JSON.stringify({ jobId, rows: items }) });
       if ((res as any)?.ok || res === null) {
         toast({ title: finalize ? 'Materials finalized' : 'Materials saved', description: finalize ? 'Inventory updated and usage history logged.' : 'Materials usage recorded for this job.' });
 
@@ -336,10 +365,15 @@ const [params] = useSearchParams();
           savePDFToArchive('Admin Updates', 'Admin', `materials-${jobId}`, pdfDataUrl, { fileName, path: 'Admin Updates/' });
         }
       } else {
-        throw new Error('Failed to sync materials');
+        const serverErr = (res as any)?.error;
+        throw new Error(String(serverErr || 'Failed to sync materials'));
       }
-    } catch {
-      toast({ title: 'Sync failed', description: 'Could not sync materials to inventory.', variant: 'destructive' });
+      return res;
+    } catch (e: any) {
+      const msg = e?.message || 'Could not sync materials to inventory.';
+      toast({ title: 'Sync failed', description: msg, variant: 'destructive' });
+      console.error('postChecklistMaterials error:', e);
+      throw e;
     }
   };
 
@@ -409,10 +443,10 @@ const [params] = useSearchParams();
   }, [checklistSteps]);
 
   // Save generic checklist progress
-  const saveGenericChecklist = async () => {
+  const saveGenericChecklist = async (): Promise<string | undefined> => {
     if (!selectedPackage || !vehicleType) {
       toast({ title: 'Select package and vehicle', description: 'Choose a package and vehicle type first.', variant: 'destructive' });
-      return;
+      return undefined;
     }
     const payload = {
       packageId: selectedPackage,
@@ -435,8 +469,10 @@ const [params] = useSearchParams();
       if (externalCustomerId) {
         await linkJobToCustomer(String(externalCustomerId));
       }
+      return (res as any).id as string;
     } else {
       toast({ title: 'Save Failed', description: 'Could not save checklist locally.', variant: 'destructive' });
+      return undefined;
     }
   };
 
@@ -463,6 +499,119 @@ const [params] = useSearchParams();
 
   const calculateTotal = () => {
     return Math.max(0, calculateSubtotal() - calculateDiscount());
+  };
+
+  // Build a simple list of selected items for PDF summaries
+  const buildSelectedItemsForSummary = () => {
+    const vkey = toVehKey(vehicleType);
+    const allServices = [...coreServicesDisplay, ...addOnServicesDisplay, destinationFeeDisplay];
+    return selectedServices.map(id => {
+      const svc = allServices.find(s => s.id === id);
+      if (!svc) return { name: '', price: 0 };
+      const price = svc.kind === 'package'
+        ? getServicePrice(svc.id, vkey)
+        : (svc.kind === 'addon' ? getAddOnPrice(svc.id, vkey) : destinationFee);
+      return { name: svc.name || '', price };
+    });
+  };
+
+  // Generate and archive a PDF for checklist progress/completion
+  // Accept explicit recordId to avoid stale state causing broken linkage
+  const archiveChecklistPDF = (finalize: boolean, recordId?: string) => {
+    try {
+      const customer = customers.find(c => c.id === selectedCustomer);
+      const customerName = customer?.name || 'Unknown';
+      const doc = new jsPDF();
+      const title = finalize ? 'Service Checklist — Job Completed' : 'Service Checklist — Progress Saved';
+      doc.setFontSize(18);
+      doc.text('Prime Detail Solutions', 105, 18, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(title, 105, 26, { align: 'center' });
+      doc.text(`Date: ${new Date().toLocaleString()}`, 20, 38);
+      doc.text(`Customer: ${customerName}`, 20, 46);
+      doc.text(`Vehicle Type: ${vehicleLabels[vehicleType] || vehicleType}`, 20, 54);
+      let y = 62;
+      if (employeeAssigned) { doc.text(`Employee: ${employeeAssigned}`, 20, y); y += 8; }
+      // Continue content
+      if (y < 66) y = 66;
+      doc.setFontSize(12);
+      doc.text('Selected Services:', 20, y);
+      y += 8;
+      buildSelectedItemsForSummary().forEach(it => {
+        doc.text(`${it.name}: $${(it.price || 0).toFixed(2)}`, 28, y);
+        y += 6;
+      });
+      y += 4;
+      doc.text(`Subtotal: $${calculateSubtotal().toFixed(2)}`, 20, y); y += 6;
+      doc.text(`Discount: $${calculateDiscount().toFixed(2)}`, 20, y); y += 6;
+      doc.text(`Total: $${calculateTotal().toFixed(2)}`, 20, y);
+
+      // Checklist Details — tasks, progress, and notes
+      y += 10;
+      doc.setFontSize(13);
+      doc.text('Checklist Details', 20, y); y += 7;
+      doc.setFontSize(11);
+      doc.text(`Progress: ${progressPercent}%`, 20, y); y += 7;
+      // Group tasks by category and list all with checkmarks
+      const categories = ['preparation','exterior','interior','final'] as const;
+      categories.forEach(cat => {
+        const tasks = checklistSteps.filter(t => t.category === cat);
+        if (tasks.length === 0) return;
+        doc.setFontSize(12);
+        const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+        doc.text(`${label}:`, 20, y); y += 6;
+        doc.setFontSize(10);
+        tasks.forEach(t => {
+          const mark = t.checked ? '✓' : '✗';
+          const line = `${mark} ${t.name}`;
+          const wrapped = doc.splitTextToSize(line, 170);
+          doc.text(wrapped, 28, y);
+          y += wrapped.length * 5 + 2;
+          if (y > 270) { doc.addPage(); y = 20; }
+        });
+        y += 2;
+      });
+
+      if (notes && notes.trim()) {
+        doc.setFontSize(12);
+        doc.text('Notes:', 20, y); y += 6;
+        doc.setFontSize(10);
+        const split = doc.splitTextToSize(notes.trim(), 170);
+        doc.text(split, 20, y);
+        y += split.length * 5 + 4;
+      }
+
+      // Materials Used — chemicals and materials rows
+      doc.setFontSize(13);
+      doc.text('Materials Used', 20, y); y += 7;
+      doc.setFontSize(11);
+      // Chemicals
+      doc.text('Chemicals:', 20, y); y += 6;
+      const chemLines = (chemRows || []).map(row => {
+        const name = String(chemicalsList.find(c => String(c.id) === String(row.chemicalId))?.name || row.chemicalId || '');
+        const frac = row.fraction ? String(row.fraction) : '';
+        const note = row.notes ? ` — ${row.notes}` : '';
+        return name ? `• ${name}${frac ? ` (${frac})` : ''}${note}` : '';
+      }).filter(Boolean);
+      const chemText = doc.splitTextToSize(chemLines.length ? chemLines.join('\n') : '(none)', 170);
+      doc.text(chemText, 28, y); y += chemText.length * 5 + 4;
+      // Materials
+      doc.text('Materials:', 20, y); y += 6;
+      const matLines = (matRows || []).map(row => {
+        const name = String(materialsList.find(m => String(m.id) === String(row.materialId))?.name || row.materialId || '');
+        const qty = row.quantityNote ? row.quantityNote : '';
+        return name ? `• ${name}${qty ? ` — ${qty}` : ''}` : '';
+      }).filter(Boolean);
+      const matText = doc.splitTextToSize(matLines.length ? matLines.join('\n') : '(none)', 170);
+      doc.text(matText, 28, y); y += matText.length * 5 + 4;
+
+      const dataUrl = doc.output('dataurlstring');
+      const recordType = finalize ? 'Job' : 'Checklist';
+      const fileName = finalize ? `Job_Completion_${customerName}_${new Date().toISOString().split('T')[0]}.pdf`
+                                : `Checklist_Progress_${customerName}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const idToArchive = String(recordId || checklistId || 'pending');
+      savePDFToArchive(recordType, customerName, idToArchive, dataUrl, { fileName });
+    } catch {}
   };
 
 const handleSave = async () => {
@@ -570,7 +719,102 @@ const handleSave = async () => {
       doc.save(`invoice-${now.getTime()}.pdf`);
     } catch {}
 
+  toast({ title: "Invoice Created", description: "Invoice saved and PDF downloaded." });
+  };
+
+  // Orchestrate finish job: ensure saved, post materials, alert and archive
+  const handleCreateInvoiceGeneric = async () => {
+    const customer = customers.find(c => c.id === selectedCustomer);
+    const vkeyBuiltIn = toBuiltInVehKey(vehicleType);
+    const allServices = [...coreServicesDisplay, ...addOnServicesDisplay, destinationFeeDisplay];
+    const selectedItems = selectedServices.map(id => {
+      const svc = allServices.find(s => s.id === id);
+      const price = (() => {
+        if (!svc) return 0;
+        if (svc.kind === 'package') {
+          const sp = parseFloat(savedPricesLive[getKey('package', svc.id, vehicleType)]) || NaN;
+          return isNaN(sp) ? getServicePrice(svc.id, vkeyBuiltIn) : sp;
+        }
+        if (svc.kind === 'addon') {
+          const ap = parseFloat(savedPricesLive[getKey('addon', svc.id, vehicleType)]) || NaN;
+          return isNaN(ap) ? getAddOnPrice(svc.id, vkeyBuiltIn) : ap;
+        }
+        return destinationFee;
+      })();
+      return {
+        id,
+        name: svc?.name || "",
+        price: price || 0,
+        chemicals: svc?.chemicals || [],
+      };
+    });
+
+    const now = new Date();
+    const invoice: any = {
+      customerId: customer?.id,
+      customerName: customer?.name || 'Generic Job',
+      vehicle: customer ? `${customer.year || ""} ${customer.vehicle || ""} ${customer.model || ""}`.trim() : '',
+      contact: { address: customer?.address || '', phone: customer?.phone || '', email: customer?.email || '' },
+      vehicleInfo: { type: vehicleLabels[vehicleType] || vehicleType, mileage: customer?.mileage, year: customer?.year, color: customer?.color, conditionInside: customer?.conditionInside, conditionOutside: customer?.conditionOutside },
+      services: selectedItems,
+      subtotal: calculateSubtotal(),
+      discount: { type: discountType, value: discountValue ? parseFloat(discountValue) : 0, amount: calculateDiscount() },
+      total: calculateTotal(),
+      notes,
+      date: now.toLocaleDateString(),
+      createdAt: now.toISOString(),
+    };
+
+    await upsertInvoice(invoice);
+
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text("Prime Detail Solutions - Invoice", 20, 20);
+      doc.setFontSize(12);
+      doc.text(`Customer: ${invoice.customerName}`, 20, 35);
+      doc.text(`Phone: ${invoice.contact.phone || "-"}`, 20, 42);
+      doc.text(`Email: ${invoice.contact.email || "-"}`, 20, 49);
+      doc.text(`Address: ${invoice.contact.address || "-"}`, 20, 56);
+      doc.text(`Vehicle: ${invoice.vehicle}`, 20, 66);
+      doc.text(`Vehicle Type: ${invoice.vehicleInfo.type}`, 20, 73);
+      let y = 85;
+      doc.setFontSize(14);
+      doc.text("Services:", 20, y); y += 8;
+      doc.setFontSize(11);
+      invoice.services.forEach((s: any) => {
+        doc.text(`${s.name}: $${s.price.toFixed(2)}`, 25, y); y += 6;
+        if (s.chemicals?.length) { doc.setFontSize(9); doc.text(`Chemicals: ${s.chemicals.join(", ")}`, 28, y); y += 5; doc.setFontSize(11);}  
+      });
+      if (invoice.discount.amount > 0) { y += 4; doc.text(`Discount: -$${invoice.discount.amount.toFixed(2)} (${invoice.discount.type === 'percent' ? invoice.discount.value + '%' : '$' + invoice.discount.value})`, 25, y); y += 6; }
+      y += 4; doc.setFontSize(12); doc.text(`Total: $${invoice.total.toFixed(2)}`, 20, y);
+      if (notes) { y += 10; doc.setFontSize(12); doc.text("Notes:", 20, y); y += 6; doc.setFontSize(10); const split = doc.splitTextToSize(notes, 170); doc.text(split, 20, y); }
+      doc.save(`invoice-${now.getTime()}.pdf`);
+    } catch {}
+
     toast({ title: "Invoice Created", description: "Invoice saved and PDF downloaded." });
+  };
+  const finishJob = async () => {
+    let step = 'start';
+    try {
+      const idToUse = checklistId || await saveGenericChecklist();
+      if (!idToUse) {
+        throw new Error('Checklist not saved (select package and vehicle).');
+      }
+      step = 'post_materials';
+      await postChecklistMaterials(idToUse, true);
+      step = 'archive_pdf';
+      archiveChecklistPDF(true, idToUse);
+      step = 'push_alert';
+      const customer = customers.find(c => c.id === selectedCustomer);
+      const customerName = customer?.name || 'Unknown';
+      pushAdminAlert('job_completed', `Job completed for ${customerName}`, 'system', { checklistId: idToUse, customerId: selectedCustomer });
+      toast({ title: 'Job Finished', description: 'Materials posted and completion archived.' });
+    } catch (e: any) {
+      const msg = e?.message || 'Unknown error';
+      toast({ title: 'Finish Failed', description: `Step: ${step}. ${msg}`, variant: 'destructive' });
+      console.error('Finish Job Error:', step, e);
+    }
   };
 
   const generatePDF = () => {
@@ -581,7 +825,7 @@ const handleSave = async () => {
     doc.text("Prime Detail Solutions - Service Estimate", 20, 20);
     doc.setFontSize(12);
     doc.text(`Customer: ${customer?.name || "N/A"}`, 20, 35);
-    doc.text(`Vehicle Type: ${vehicleType}`, 20, 42);
+    doc.text(`Vehicle Type: ${vehicleLabels[vehicleType] || vehicleType}`, 20, 42);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 49);
 
     let y = 60;
@@ -633,13 +877,27 @@ const handleSave = async () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Service Checklist" />
+      <PageHeader title={`Service Checklist ${selectedCustomer ? '(Linked)' : '(Generic)'}`} />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">
         <div className="space-y-6 animate-fade-in">
           {/* Job Setup - Generic, no forced customer link */}
           <Card className="p-6 bg-gradient-card border-border">
             <h2 className="text-2xl font-bold text-foreground mb-4">Job Setup</h2>
+            {/* Customer selection restored — includes Generic option */}
+            <div className="mb-4">
+              <Label>Customer</Label>
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-white/20 bg-black text-white px-3 py-2 text-sm"
+              >
+                <option value="">Generic Customer (No Link)</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id!}>{c.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               <div className="space-y-2">
                 <Label>Package</Label>
@@ -773,6 +1031,38 @@ const handleSave = async () => {
               <Button variant="outline" className="h-9" onClick={() => setMaterialsModalOpen(true)}>Material Updates</Button>
             </div>
 
+            {/* Quick add from Inventory: unified dropdown for Chemicals + Materials */}
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Quick Add from Inventory</Label>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    const chem = chemicalsList.find(c => String(c.id) === String(val));
+                    const mat = materialsList.find(m => String(m.id) === String(val));
+                    if (chem) {
+                      setChemRows(prev => ([...prev, { chemicalId: String(chem.id), fraction: '', notes: '' }]));
+                    } else if (mat) {
+                      setMatRows(prev => ([...prev, { materialId: String(mat.id), quantityNote: '' }]));
+                    }
+                    // reset select
+                    e.currentTarget.selectedIndex = 0;
+                  }}
+                  className="flex h-10 w-full rounded-md border border-red-600 bg-black text-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select item to add...</option>
+                  <optgroup label="Chemicals">
+                    {chemicalsList.map(it => (<option key={`chem-${it.id}`} value={it.id}>{it.name}</option>))}
+                  </optgroup>
+                  <optgroup label="Materials">
+                    {materialsList.map(it => (<option key={`mat-${it.id}`} value={it.id}>{it.name}</option>))}
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
             {/* Chemicals subsection */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
@@ -782,6 +1072,11 @@ const handleSave = async () => {
               {chemRows.length === 0 && (
                 <p className="text-sm text-muted-foreground">Add chemicals used (e.g., Wax 1/2).</p>
               )}
+              {/* Search filter for chemicals */}
+              <div className="mb-3">
+                <Label>Search Chemicals</Label>
+                <Input placeholder="Type to filter…" value={chemSearch} onChange={(e) => setChemSearch(e.target.value)} />
+              </div>
               <div className="space-y-3">
                 {chemRows.map((row, idx) => (
                   <div key={`chem-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -793,7 +1088,9 @@ const handleSave = async () => {
                         className="flex h-10 w-full rounded-md border border-red-600 bg-black text-white px-3 py-2 text-sm"
                       >
                         <option value="">Select a chemical...</option>
-                        {chemicalsList.map(it => (<option key={it.id} value={it.id}>{it.name}</option>))}
+                        {chemicalsList
+                          .filter(it => (chemSearch ? String(it.name || '').toLowerCase().includes(chemSearch.toLowerCase()) : true))
+                          .map(it => (<option key={it.id} value={it.id}>{it.name}</option>))}
                       </select>
                     </div>
                     <div className="md:col-span-6">
@@ -830,6 +1127,7 @@ const handleSave = async () => {
               {matRows.length === 0 && (
                 <p className="text-sm text-muted-foreground">Add materials used (e.g., 5 rags, 2 brushes).</p>
               )}
+              {/* Removed search input; unified quick add dropdown above now lists all inventory */}
               <div className="space-y-3">
                 {matRows.map((row, idx) => (
                   <div key={`mat-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -872,10 +1170,10 @@ const handleSave = async () => {
 
           {/* Complete & Save controls */}
           <div className="flex items-center gap-3">
-            <Button onClick={async () => { if (!checklistId) { await saveGenericChecklist(); } if (checklistId) await postChecklistMaterials(checklistId, true); }} className="bg-red-600 text-white">
+            <Button onClick={finishJob} className="bg-red-600 text-white">
               <Save className="h-4 w-4 mr-2" />Finish Job
             </Button>
-            <Button onClick={saveGenericChecklist} className="bg-gradient-hero"><Save className="h-4 w-4 mr-2" />Save Progress</Button>
+            <Button onClick={async () => { const savedId = await saveGenericChecklist(); archiveChecklistPDF(false, savedId || checklistId || undefined); const customer = customers.find(c => c.id === selectedCustomer); const customerName = customer?.name || 'Unknown'; pushAdminAlert('job_progress', `Progress saved for ${customerName}`, 'system', { checklistId: savedId || checklistId, customerId: selectedCustomer }); }} className="bg-gradient-hero"><Save className="h-4 w-4 mr-2" />Save Progress</Button>
             {checklistId && <span className="text-sm text-muted-foreground flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" />Saved</span>}
           </div>
 
@@ -939,7 +1237,7 @@ const handleSave = async () => {
 
           {/* Actions */}
           <div className="flex gap-4 flex-wrap">
-            <Button onClick={handleCreateInvoice} className="bg-gradient-hero">
+            <Button onClick={handleCreateInvoiceGeneric} className="bg-gradient-hero">
               <FileText className="h-4 w-4 mr-2" />
               Save & Create Invoice
             </Button>

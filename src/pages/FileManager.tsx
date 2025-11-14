@@ -39,7 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { dismissAlertsForRecord, getAdminAlerts } from "@/lib/adminAlerts";
+import { dismissAlertsForRecord, getAdminAlerts, pushAdminAlert } from "@/lib/adminAlerts";
 import { useAlertsStore } from "@/store/alerts";
 import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
@@ -73,11 +73,12 @@ interface PDFRecord {
   const [adminPnl, setAdminPnl] = useState("");
   const [adminRevenue, setAdminRevenue] = useState("");
   const [adminPendingCount, setAdminPendingCount] = useState<string>("");
-  const [employeeRows, setEmployeeRows] = useState([
-    { name: "John Doe", training: "80", jobsToday: "2", hours: "6" },
-    { name: "Sarah P.", training: "65", jobsToday: "3", hours: "7" },
-    { name: "Mike R.", training: "50", jobsToday: "1", hours: "5" },
-  ]);
+  const [employeeRows, setEmployeeRows] = useState<{
+    name: string;
+    training: string;
+    jobsToday: string;
+    hours: string;
+  }[]>([]);
   const [viewerSrc, setViewerSrc] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [viewerLoading, setViewerLoading] = useState(false);
@@ -122,6 +123,13 @@ interface PDFRecord {
     if (category) {
       setTypeFilter(normalizeCategory(category));
       setAppliedUrlCategory(true);
+      // Clear the URL param after applying so user can change category freely
+      try {
+        params.delete('category');
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        window.history.replaceState(null, '', url.toString());
+      } catch {}
     }
   }, [user]);
 
@@ -380,11 +388,26 @@ interface PDFRecord {
                               try {
                                 // Mark this file as viewed so sidebar/admin badges drop
                                 markViewed("file", record.id);
-                                // Dismiss any alerts tied to this record
-                                dismissAlertsForRecord(record.recordType, record.recordId);
-                                // Refresh alerts across UI immediately
+                                const hasAlerts = recordHasAlerts(record);
+                                if (hasAlerts) {
+                                  // Dismiss any alerts tied to this record
+                                  dismissAlertsForRecord(record.recordType, record.recordId);
+                                  toast({ title: "Alerts cleared", description: "Badges updated." });
+                                } else {
+                                  // Add a lightweight alert tied to this record to flag it
+                                  try {
+                                    pushAdminAlert(
+                                      'accounting_update',
+                                      `Flagged record: ${record.fileName}`,
+                                      user?.name || 'admin',
+                                      { recordType: record.recordType, recordId: record.recordId }
+                                    );
+                                    toast({ title: "Alert added", description: "Record flagged for review." });
+                                  } catch {}
+                                }
+                                // Refresh alerts across UI immediately and force a local re-render
                                 useAlertsStore.getState().refresh();
-                                toast({ title: "Alerts cleared", description: "Badges updated." });
+                                setRecords(prev => [...prev]);
                               } catch {}
                             }}
                             title="Toggle alerts for this record"

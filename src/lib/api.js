@@ -35,8 +35,77 @@ const api = async (endpoint, options = {}) => {
   // =====================
   if (endpoint === '/api/users' && (options.method || 'GET').toUpperCase() === 'GET') {
     try {
-      const list = (await localforage.getItem('users')) || [];
-      return Array.isArray(list) ? list : [];
+      const users = (await localforage.getItem('users')) || [];
+      const companyEmps = (await localforage.getItem('company-employees')) || [];
+      const normalizedCompany = (Array.isArray(companyEmps) ? companyEmps : []).map((e) => ({
+        id: `emp_${String(e.email || e.name || Math.random()).toLowerCase()}`,
+        name: e.name || '',
+        email: e.email || '',
+        role: String(e.role || '').toLowerCase() === 'admin' ? 'admin' : 'employee',
+        createdAt: e.createdAt || null,
+        updatedAt: e.updatedAt || null,
+        lastLogin: e.lastLogin || null,
+      }));
+      const byEmail = new Map();
+      const push = (item) => {
+        const key = String(item.email || '').toLowerCase();
+        const prev = byEmail.get(key);
+        if (!prev) byEmail.set(key, item);
+        else {
+          const pTs = prev.updatedAt ? new Date(prev.updatedAt).getTime() : 0;
+          const cTs = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+          byEmail.set(key, cTs >= pTs ? { ...prev, ...item } : prev);
+        }
+      };
+      (Array.isArray(users) ? users : []).forEach(push);
+      normalizedCompany.forEach(push);
+      return Array.from(byEmail.values());
+    } catch {
+      return [];
+    }
+  }
+
+  // Services: site-wide disclaimers and related content (expandable)
+  if (endpoint.startsWith('/api/services')) {
+    const method = (options.method || 'GET').toUpperCase();
+    const key = 'servicesContent';
+  const defaults = { disclaimer: '⚠️ Service & Pricing Disclaimer \n • Paint Protection & Ceramic Coating NOT included. Available only in Premium packages or add-ons. \n \n • We do NOT offer: → Biological Cleanup → Emergency Services \n \n • We focus on premium cosmetic and protective detailing. \n \n Important: Final price may vary based on vehicle condition, size, or additional work required. All quotes are estimates until vehicle is inspected.' };
+    const getCurrent = async () => {
+      const curr = (await localforage.getItem(key)) || {};
+      return {
+        disclaimer: String(curr.disclaimer || defaults.disclaimer),
+      };
+    };
+    if (method === 'GET' && endpoint === '/api/services') {
+      try { return await getCurrent(); } catch { return defaults; }
+    }
+    if (method === 'POST' && endpoint === '/api/services') {
+      try {
+        const payload = JSON.parse(options.body || '{}');
+        const next = { disclaimer: String(payload.disclaimer || defaults.disclaimer) };
+        await localforage.setItem(key, next);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'services' } })); } catch {}
+        return { ok: true, record: next };
+      } catch { return { ok: false, error: 'failed_to_update_services_local' }; }
+    }
+  }
+
+  // Employees-only list
+  if (endpoint === '/api/users/employees' && (options.method || 'GET').toUpperCase() === 'GET') {
+    try {
+      const users = (await localforage.getItem('users')) || [];
+      const companyEmps = (await localforage.getItem('company-employees')) || [];
+      const normalizedCompany = (Array.isArray(companyEmps) ? companyEmps : []).map((e) => ({
+        id: `emp_${String(e.email || e.name || Math.random()).toLowerCase()}`,
+        name: e.name || '',
+        email: e.email || '',
+        role: String(e.role || '').toLowerCase() === 'admin' ? 'admin' : 'employee',
+        createdAt: e.createdAt || null,
+        updatedAt: e.updatedAt || null,
+        lastLogin: e.lastLogin || null,
+      }));
+      const merged = [...(Array.isArray(users) ? users : []), ...normalizedCompany];
+      return merged.filter((u) => String(u.role) === 'employee');
     } catch {
       return [];
     }
@@ -467,6 +536,98 @@ const api = async (endpoint, options = {}) => {
     }
   }
 
+  // About page: features blurb (three key highlights)
+  if (endpoint.startsWith('/api/about/features')) {
+    const method = (options.method || 'GET').toUpperCase();
+    const key = 'aboutFeatures';
+    const defaults = {
+      expertTeam: 'Highly trained professionals with years of experience in premium auto detailing',
+      ecoFriendly: 'We use only premium, environmentally safe products that protect your vehicle and our planet',
+      satisfactionGuarantee: 'Your satisfaction is our priority. We stand behind every service we provide',
+    };
+    const getCurrent = async () => {
+      const curr = (await localforage.getItem(key)) || {};
+      return {
+        expertTeam: String(curr.expertTeam || defaults.expertTeam),
+        ecoFriendly: String(curr.ecoFriendly || defaults.ecoFriendly),
+        satisfactionGuarantee: String(curr.satisfactionGuarantee || defaults.satisfactionGuarantee),
+      };
+    };
+    if (method === 'GET' && endpoint === '/api/about/features') {
+      try { return await getCurrent(); } catch { return defaults; }
+    }
+    if (method === 'POST' && endpoint === '/api/about/features') {
+      try {
+        const payload = JSON.parse(options.body || '{}');
+        const next = {
+          expertTeam: String(payload.expertTeam || defaults.expertTeam),
+          ecoFriendly: String(payload.ecoFriendly || defaults.ecoFriendly),
+          satisfactionGuarantee: String(payload.satisfactionGuarantee || defaults.satisfactionGuarantee),
+        };
+        await localforage.setItem(key, next);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'aboutFeatures' } })); } catch {}
+        return { ok: true, record: next };
+      } catch { return { ok: false, error: 'failed_to_update_local' }; }
+    }
+  }
+
+  // Testimonials: simple name + quote list
+  if (endpoint.startsWith('/api/testimonials')) {
+    const method = (options.method || 'GET').toUpperCase();
+    const key = 'testimonials';
+    const ensureList = async () => {
+      const existing = (await localforage.getItem(key)) || [];
+      const list = Array.isArray(existing) ? existing : [];
+      const seed = [
+        { id: 't_default_michael', name: 'Michael R.', quote: 'Prime Detail Solutions transformed my car! The attention to detail is incredible. My Tesla looks brand new again. Highly recommend!' },
+        { id: 't_default_sarah', name: 'Sarah K.', quote: 'Professional, friendly, and affordable. The ceramic coating has kept my BMW looking pristine for months. Best detailing service in Methuen!' },
+        { id: 't_default_james', name: 'James D.', quote: 'I love their mobile service! They came to my office and detailed my truck while I worked. Convenient and exceptional results.' },
+        { id: 't_default_lisa', name: 'Lisa M.', quote: 'The interior cleaning was amazing. They removed pet hair and odors I thought were permanent. My SUV smells and looks fantastic!' },
+      ];
+      const ids = new Set(list.map((t) => t.id));
+      const merged = [...list, ...seed.filter((t) => !ids.has(t.id))];
+      await localforage.setItem(key, merged);
+      return merged;
+    };
+    if (method === 'GET' && endpoint === '/api/testimonials') {
+      try { return await ensureList(); } catch { return []; }
+    }
+    if (method === 'POST' && endpoint === '/api/testimonials') {
+      try {
+        const payload = JSON.parse(options.body || '{}');
+        const list = (await ensureList()) || [];
+        const record = { id: `t_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, name: String(payload.name || 'Customer'), quote: String(payload.quote || '') };
+        list.push(record);
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'testimonials' } })); } catch {}
+        return { ok: true, record };
+      } catch { return { ok: false, error: 'failed_to_create_local' }; }
+    }
+    if (method === 'PUT' && endpoint.startsWith('/api/testimonials/')) {
+      try {
+        const id = endpoint.split('/')[3];
+        const payload = JSON.parse(options.body || '{}');
+        const list = (await ensureList()) || [];
+        const idx = list.findIndex((t) => t.id === id);
+        if (idx < 0) return { ok: false, error: 'not_found' };
+        list[idx] = { ...list[idx], name: String(payload.name ?? list[idx].name), quote: String(payload.quote ?? list[idx].quote) };
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'testimonials' } })); } catch {}
+        return { ok: true, record: list[idx] };
+      } catch { return { ok: false, error: 'failed_to_update_local' }; }
+    }
+    if (method === 'DELETE' && endpoint.startsWith('/api/testimonials/')) {
+      try {
+        const id = endpoint.split('/')[3];
+        const list = (await ensureList()) || [];
+        const next = list.filter((t) => t.id !== id);
+        await localforage.setItem(key, next);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'testimonials' } })); } catch {}
+        return { ok: true };
+      } catch { return { ok: false, error: 'failed_to_delete_local' }; }
+    }
+  }
+
   if (endpoint === '/api/users/create' && (options.method || 'GET').toUpperCase() === 'POST') {
     try {
       const payload = JSON.parse(options.body || '{}');
@@ -506,6 +667,17 @@ const api = async (endpoint, options = {}) => {
     }
   }
 
+  // Create employee convenience endpoint
+  if (endpoint === '/api/users/create-employee' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const res = await api('/api/users/create', { method: 'POST', body: JSON.stringify({ ...payload, role: 'employee' }) });
+      return res;
+    } catch (e) {
+      return { ok: false, error: 'failed_to_create_employee_local' };
+    }
+  }
+
   if (endpoint.startsWith('/api/users/') && endpoint.endsWith('/role') && (options.method || 'GET').toUpperCase() === 'PUT') {
     try {
       const id = endpoint.split('/')[3];
@@ -534,7 +706,12 @@ const api = async (endpoint, options = {}) => {
     try {
       const id = endpoint.split('/')[3];
       const users = (await localforage.getItem('users')) || [];
-      const target = users.find((u) => String(u.id) === String(id));
+      let target = users.find((u) => String(u.id) === String(id));
+      if (!target) {
+        const companyEmps = (await localforage.getItem('company-employees')) || [];
+        const emp = (Array.isArray(companyEmps) ? companyEmps : []).find((e) => `emp_${String(e.email || e.name || '').toLowerCase()}` === String(id));
+        if (emp) target = { id, name: emp.name, email: emp.email, role: String(emp.role || '').toLowerCase() === 'admin' ? 'admin' : 'employee' };
+      }
       if (!target) return { ok: false, error: 'not_found' };
       // Save admin user for return after logout
       try {
@@ -546,8 +723,20 @@ const api = async (endpoint, options = {}) => {
       const user = { email: target.email, role: target.role, name: target.name };
       localStorage.setItem('currentUser', JSON.stringify(user));
       // update last login
-      target.lastLogin = new Date().toISOString();
-      await localforage.setItem('users', users);
+      try {
+        target.lastLogin = new Date().toISOString();
+        if ((Array.isArray(users) ? users : []).find((u) => String(u.id) === String(id))) {
+          await localforage.setItem('users', users);
+        } else {
+          const companyEmps = (await localforage.getItem('company-employees')) || [];
+          const empIdx = (Array.isArray(companyEmps) ? companyEmps : []).findIndex((e) => `emp_${String(e.email || e.name || '').toLowerCase()}` === String(id));
+          if (empIdx >= 0) {
+            companyEmps[empIdx] = { ...companyEmps[empIdx], lastLogin: target.lastLogin };
+            await localforage.setItem('company-employees', companyEmps);
+            try { localStorage.setItem('company-employees', JSON.stringify(companyEmps)); } catch {}
+          }
+        }
+      } catch {}
       try { window.dispatchEvent(new CustomEvent('auth-changed', { detail: user })); } catch {}
       return { ok: true, user };
     } catch (e) {
@@ -559,11 +748,53 @@ const api = async (endpoint, options = {}) => {
     try {
       const id = endpoint.split('/')[3];
       const users = (await localforage.getItem('users')) || [];
-      const next = users.filter((u) => String(u.id) !== String(id));
-      await localforage.setItem('users', next);
-      return { ok: true };
+      let changed = false;
+      if ((Array.isArray(users) ? users : []).some((u) => String(u.id) === String(id))) {
+        const next = users.filter((u) => String(u.id) !== String(id));
+        await localforage.setItem('users', next);
+        changed = true;
+      }
+      const companyEmps = (await localforage.getItem('company-employees')) || [];
+      const filtered = (Array.isArray(companyEmps) ? companyEmps : []).filter((e) => `emp_${String(e.email || e.name || '').toLowerCase()}` !== String(id));
+      if (filtered.length !== (Array.isArray(companyEmps) ? companyEmps.length : 0)) {
+        await localforage.setItem('company-employees', filtered);
+        try { localStorage.setItem('company-employees', JSON.stringify(filtered)); } catch {}
+        changed = true;
+      }
+      return changed ? { ok: true } : { ok: false, error: 'not_found' };
     } catch (e) {
       return { ok: false, error: 'failed_to_delete_user_local' };
+    }
+  }
+
+  // Update basic employee details (name/email)
+  if (endpoint === '/api/users/update' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const { id, name, email } = payload || {};
+      if (!id) return { ok: false, error: 'missing_id' };
+      const users = (await localforage.getItem('users')) || [];
+      const idx = users.findIndex((u) => String(u.id) === String(id));
+      if (idx >= 0) {
+        const next = { ...users[idx], name: name ?? users[idx].name, email: email ?? users[idx].email, updatedAt: new Date().toISOString() };
+        users[idx] = next;
+        await localforage.setItem('users', users);
+        return { ok: true, user: next };
+      }
+      // Fallback to company-employees by synthetic id or email
+      const companyEmps = (await localforage.getItem('company-employees')) || [];
+      const findIdx = (Array.isArray(companyEmps) ? companyEmps : []).findIndex((e) => `emp_${String(e.email || e.name || '').toLowerCase()}` === String(id));
+      const empIdx = findIdx >= 0 ? findIdx : (Array.isArray(companyEmps) ? companyEmps : []).findIndex((e) => String(e.email).toLowerCase() === String(email || '').toLowerCase());
+      if (empIdx < 0) return { ok: false, error: 'not_found' };
+      const existing = companyEmps[empIdx] || {};
+      const updated = { ...existing, name: name ?? existing.name, email: email ?? existing.email, updatedAt: new Date().toISOString() };
+      companyEmps[empIdx] = updated;
+      await localforage.setItem('company-employees', companyEmps);
+      try { localStorage.setItem('company-employees', JSON.stringify(companyEmps)); } catch {}
+      const normalized = { id: `emp_${String(updated.email || updated.name || '').toLowerCase()}`, name: updated.name, email: updated.email, role: 'employee', updatedAt: updated.updatedAt };
+      return { ok: true, user: normalized };
+    } catch (e) {
+      return { ok: false, error: 'failed_to_update_user_local' };
     }
   }
 
@@ -581,7 +812,7 @@ const api = async (endpoint, options = {}) => {
       return [];
     }
   }
-  // Inventory combined list for materials section
+  // Inventory combined list — read locally (authoritative in this app)
   if (endpoint === '/api/inventory/all' && (options.method || 'GET').toUpperCase() === 'GET') {
     try {
       const chemicals = (await localforage.getItem('chemicals')) || [];
@@ -589,6 +820,23 @@ const api = async (endpoint, options = {}) => {
       return { chemicals, materials };
     } catch (e) {
       return { chemicals: [], materials: [] };
+    }
+  }
+  // Inventory lists (split) — read locally
+  if (endpoint === '/api/inventory/chemicals' && (options.method || 'GET').toUpperCase() === 'GET') {
+    try {
+      const chemicals = (await localforage.getItem('chemicals')) || [];
+      return Array.isArray(chemicals) ? chemicals : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  if (endpoint === '/api/inventory/materials' && (options.method || 'GET').toUpperCase() === 'GET') {
+    try {
+      const materials = (await localforage.getItem('materials')) || [];
+      return Array.isArray(materials) ? materials : [];
+    } catch (e) {
+      return [];
     }
   }
   // Inventory estimate update (temporary hold before job completion)
@@ -612,6 +860,14 @@ const api = async (endpoint, options = {}) => {
       const record = { id, ...payload, createdAt: new Date().toISOString() };
       list.push(record);
       await localforage.setItem('generic-checklists', list);
+      // Best-effort forward to live server on 6061 so other clients can reflect instantly
+      try {
+        await fetchWithRetry(`${API_BASE}/api/checklist/generic`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+        }, 0);
+      } catch {}
       return { ok: true, id };
     } catch (e) {
       return { ok: false, error: 'failed_to_save_generic_local' };
@@ -628,6 +884,14 @@ const api = async (endpoint, options = {}) => {
       if (idx >= 0) {
         list[idx] = { ...list[idx], customerId: customerId || list[idx].customerId, jobId: jobId || list[idx].jobId, linkedAt: new Date().toISOString() };
         await localforage.setItem('generic-checklists', list);
+        // Forward link operation to live server on 6061
+        try {
+          await fetchWithRetry(`${API_BASE}/api/checklist/${id}/link-customer`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerId, jobId }),
+          }, 0);
+        } catch {}
         return { ok: true };
       }
       return { ok: false, error: 'not_found' };
@@ -692,57 +956,27 @@ const api = async (endpoint, options = {}) => {
       return { ok: false, error: 'failed_to_save_customer_local' };
     }
   }
-  // Local handler: checklist materials usage — decrement stock and append usage history
+  // Forward checklist materials usage to live backend on port 6061
   if (endpoint === '/api/checklist/materials' && (options.method || 'GET').toUpperCase() === 'POST') {
     try {
       const payload = JSON.parse(options.body || '[]');
-      const items = Array.isArray(payload) ? payload : [payload];
-      const chemicals = (await localforage.getItem('chemicals')) || [];
-      const materials = (await localforage.getItem('materials')) || [];
-      const usage = (await localforage.getItem('chemical-usage')) || [];
-
-      const findChem = (id) => chemicals.find((c) => String(c.id) === String(id));
-      const findMat = (id) => materials.find((m) => String(m.id) === String(id));
-
-      const nowStr = new Date().toISOString();
-      items.forEach((it) => {
-        const qty = Number(it.quantityUsed || it.quantity || 0);
-        const date = String(it.date || nowStr);
-        const serviceName = String(it.serviceName || 'Service');
-        const employee = String(it.employee || '');
-        if (it.chemicalId) {
-          const c = findChem(it.chemicalId);
-          if (c) {
-            c.currentStock = Math.max(0, Number(c.currentStock || 0) - qty);
-            usage.push({ id: `u_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, chemicalId: c.id, chemicalName: c.name, serviceName, date, employee });
-          }
-        } else if (it.materialId) {
-          const m = findMat(it.materialId);
-          if (m) {
-            m.quantity = Math.max(0, Number(m.quantity || 0) - qty);
-            usage.push({ id: `u_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, materialId: m.id, materialName: m.name, serviceName, date, employee });
-          }
-        }
-      });
-
-      await localforage.setItem('chemicals', chemicals);
-      await localforage.setItem('materials', materials);
-      await localforage.setItem('chemical-usage', usage);
-
-      // Push low inventory alerts for any items now under threshold
-      try {
-        const { pushAdminAlert } = await import('@/lib/adminAlerts');
-        const lowChem = chemicals.filter((c) => Number(c.currentStock || 0) <= Number(c.threshold || 0));
-        const lowMat = materials.filter((m) => typeof m.lowThreshold === 'number' && Number(m.quantity || 0) <= Number(m.lowThreshold));
-        const count = lowChem.length + lowMat.length;
-        if (count > 0) {
-          pushAdminAlert('low_inventory', `Low inventory detected: ${count} items`, 'system', { count, recordType: 'Inventory' });
-        }
-      } catch {}
-
-      return { ok: true };
+      const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload.rows) ? payload.rows : [payload];
+      const jobId = payload.jobId || payload.id || payload.job_id || '';
+      const body = { jobId, rows };
+      const token = localStorage.getItem('token');
+      const res = await fetchWithRetry(`${API_BASE}/api/checklist/materials?v=${Date.now()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      }, 1);
+      return res || { ok: true };
     } catch (e) {
-      return { ok: false, error: 'failed_to_update_inventory_local' };
+      return { ok: false, error: 'failed_to_forward_materials' };
     }
   }
   // Local handler: materials usage by employee with date filters

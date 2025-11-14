@@ -18,6 +18,7 @@ import {
   getPackageMeta,
   setPackageMeta,
   getAllPackageMeta,
+  getAllAddOnMeta,
   getAddOnMeta,
   setAddOnMeta,
   getCustomPackages,
@@ -188,34 +189,28 @@ export default function PackagePricing() {
     await localforage.setItem("savedPrices", updated);
   }
 
-  // Helper to open backend live API for immediate verification after saves
-  const openPackagesLiveInBrowser = () => {
+  // Helper to silently ping backend live API after saves (no new tab)
+  const openPackagesLiveInBrowser = async () => {
     try {
       const url = `http://localhost:6061/api/packages/live?v=${Date.now()}`;
-      window.open(url, 'packages-live');
+      await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+      try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}
     } catch {}
   };
 
-  // Hard refresh Website tab after save/toggle/add/delete
-  const forceWebsiteTabRefresh = () => {
+  // Soft refresh signal for Website preview without opening tabs
+  const forceWebsiteTabRefresh = async () => {
     try {
-      const url = `http://localhost:6061/services?v=${Date.now()}`;
-      const websiteTab = window.open(url, 'website-preview');
-      setTimeout(() => {
-        try { websiteTab?.location.reload(); } catch {}
-      }, 800);
+      await fetch(`http://localhost:6061/api/packages/sync?v=${Date.now()}`, { method: 'POST' });
     } catch {}
+    try { localStorage.setItem('force-refresh', String(Date.now())); } catch {}
+    try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'website' } })); } catch {}
   };
 
-  // Also refresh Book Now preview tab so the booking form reflects live changes
-  const forceBookNowTabRefresh = () => {
-    try {
-      const url = `http://localhost:6061/book-now?v=${Date.now()}`;
-      const bookTab = window.open(url, 'booknow-preview');
-      setTimeout(() => {
-        try { bookTab?.location.reload(); } catch {}
-      }, 800);
-    } catch {}
+  // Soft refresh for Book Now preview without opening tabs
+  const forceBookNowTabRefresh = async () => {
+    try { localStorage.setItem('force-refresh-book', String(Date.now())); } catch {}
+    try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'booknow' } })); } catch {}
   };
 
   const openViewAllPrices = async () => {
@@ -231,12 +226,25 @@ export default function PackagePricing() {
     setViewAllOpen(true);
   };
 
+  // Refresh the in-memory live snapshot after a sync so View All reflects latest
+  const refreshLiveAfterSync = async () => {
+    try {
+      const res = await fetch(`http://localhost:6061/api/packages/live?v=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLiveSnapshot(data);
+      }
+    } catch {}
+  };
+
   const liveGetKey = (type: 'package'|'addon', id: string, size: string) => `${type}:${id}:${size}`;
 
   const downloadPricesJSON = async () => {
     const now = new Date().toISOString().split('T')[0];
     const payload = {
-      savedPrices: liveSnapshot?.savedPrices || (await localforage.getItem<Record<string,string>('savedPrices')) || {},
+      savedPrices: liveSnapshot?.savedPrices || (await localforage.getItem<PriceMap>('savedPrices')) || {},
       packageMeta: liveSnapshot?.packageMeta || getAllPackageMeta(),
       addOnMeta: liveSnapshot?.addOnMeta || getAllAddOnMeta(),
       customPackages: liveSnapshot?.customPackages || getCustomPackages(),
@@ -1291,7 +1299,7 @@ export default function PackagePricing() {
                 <input type="file" accept=".json" className="hidden" onChange={handleModalPricingRestore} />
               </label>
             </div>
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <h3 className="text-red-600 font-bold mb-2">Packages</h3>
                 <div className="overflow-x-auto">

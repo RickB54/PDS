@@ -233,7 +233,7 @@ const BookNow = () => {
       if (!code) return;
       const now = new Date();
       const coupons = useCouponsStore.getState().items.filter(
-        (c: any) => c.active && (c.liveOnWebsite === true) && c.usesLeft > 0 && (!c.startDate || new Date(c.startDate) <= now) && (!c.endDate || new Date(c.endDate) >= now)
+        (c: any) => c.active && c.usesLeft > 0 && (!c.startDate || new Date(c.startDate) <= now) && (!c.endDate || new Date(c.endDate) >= now)
       );
       const match = coupons.find((c: any) => c.code === code);
       if (!match) {

@@ -20,11 +20,7 @@ export function BookingsCalendar({ readOnly = false, initialDate, showControls =
   const [viewDate, setViewDate] = useState<Date>(initialDate || new Date());
   const [filter, setFilter] = useState<BookingStatus | "all">(filterDefault);
 
-  useEffect(() => {
-    if (items.length === 0) {
-      add({ id: `b_${Date.now()}`, title: "Exterior Wash", date: formatDate(new Date()), status: "pending", customer: "" });
-    }
-  }, []);
+  // Do not seed demo bookings; calendar should reflect real data only
 
   const start = startOfMonth(viewDate);
   const end = endOfMonth(viewDate);
@@ -98,4 +94,3 @@ export function BookingsCalendar({ readOnly = false, initialDate, showControls =
     </div>
   );
 }
-

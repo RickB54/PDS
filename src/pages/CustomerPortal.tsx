@@ -442,9 +442,7 @@ const CustomerPortal = () => {
               >
                 BOOK NOW → GET ESTIMATE
               </Button>
-              <Button variant="outline" className="w-full h-12 border-primary text-primary hover:bg-primary/10">
-                VIEW MY OFFERS
-              </Button>
+              {/* Removed per request: View My Offers button */}
             </div>
           </Card>
         )}

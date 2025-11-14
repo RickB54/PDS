@@ -58,9 +58,7 @@ const Payroll = () => {
 
   useEffect(() => {
     const load = async () => {
-      const list = (await localforage.getItem<any[]>("company-employees")) || [
-        { name: "Employee User", email: "employee@gmail.com", flatRate: 20 }
-      ];
+      const list = (await localforage.getItem<any[]>("company-employees")) || [];
       setEmployees(list);
     const jobs = JSON.parse(localStorage.getItem('completedJobs') || '[]');
     setCompletedJobs(jobs);
@@ -549,6 +547,7 @@ const addJobRowFromCompleted = (job: any) => {
                 <Button size="sm" className="rounded-lg bg-red-700 hover:bg-red-800" onClick={addJobRow}>Add Job Pay Row</Button>
                 <Button size="sm" className="rounded-lg" variant="outline" onClick={addRow}>Add Hours Row</Button>
                 <Button size="sm" className="rounded-lg bg-red-700 hover:bg-red-800" onClick={addCustomPayment}>Add Custom Payment</Button>
+                <Button size="sm" className="rounded-lg bg-red-700 hover:bg-red-800" onClick={savePayStub}>Pay Now</Button>
                 <Button size="sm" className="rounded-lg bg-gradient-hero" onClick={savePayStub}>Save Payroll PDF</Button>
               </div>
               <div className="mt-4 p-4 border border-border rounded-md bg-black text-white max-w-md">

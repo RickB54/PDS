@@ -35,11 +35,13 @@ import CustomerAccount from "./pages/CustomerAccount";
 import Portal from "./pages/Portal";
 import QuickLogin from "./pages/QuickLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import UserManagement from "./pages/UserManagement";
 import WebsiteAdministration from "./pages/WebsiteAdministration";
 import BookingsPage from "./pages/BookingsPage";
 import DiscountCoupons from "./pages/DiscountCoupons";
 import PackagePricing from "./pages/PackagePricing";
 import Payroll from "./pages/Payroll";
+import JobsCompleted from "./pages/JobsCompleted";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -165,6 +167,11 @@ const App = () => {
                         <FileManager />
                       </ProtectedRoute>
                     } />
+                    <Route path="/jobs-completed" element={
+                      <ProtectedRoute allowedRoles={['admin', 'employee']}>
+                        <JobsCompleted />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/reports" element={
                       <ProtectedRoute allowedRoles={['admin']}>
                         <Reports />
@@ -178,6 +185,11 @@ const App = () => {
                     <Route path="/admin-dashboard" element={
                       <ProtectedRoute allowedRoles={['admin']}>
                         <AdminDashboard />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/user-management" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <UserManagement />
                       </ProtectedRoute>
                     } />
                     <Route path="/website-admin" element={

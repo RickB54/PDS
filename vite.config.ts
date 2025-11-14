@@ -29,6 +29,12 @@ export default defineConfig(({ mode }) => ({
           { id: 'truck', name: 'Truck/Van/Large SUV', description: 'Trucks, vans, large SUVs', hasPricing: true },
           { id: 'luxury', name: 'Luxury/High-End', description: 'Luxury and premium vehicles', hasPricing: true },
         ];
+        let contactLive: any = {
+          hours: 'Appointments daily 8 AM–6 PM',
+          phone: '(555) 123-4567',
+          address: 'Methuen, MA',
+          email: 'primedetailsolutions.ma.nh@gmail.com',
+        };
 
         function sendJson(res: any, obj: any) {
           res.statusCode = 200;
@@ -83,6 +89,29 @@ export default defineConfig(({ mode }) => ({
           }
           if (url.startsWith('/api/vehicle-types/live') && method === 'GET') {
             return sendJson(res, vehicleTypesLive);
+          }
+          // Contact live endpoints
+          if (url === '/api/contact/live' && method === 'POST') {
+            let body = '';
+            req.on('data', (chunk: any) => { body += chunk; });
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                contactLive = {
+                  hours: String(payload.hours ?? contactLive.hours),
+                  phone: String(payload.phone ?? contactLive.phone),
+                  address: String(payload.address ?? contactLive.address),
+                  email: String(payload.email ?? contactLive.email),
+                };
+                return sendJson(res, { ok: true });
+              } catch (e) {
+                res.statusCode = 400; return sendJson(res, { ok: false, error: 'invalid_payload' });
+              }
+            });
+            return;
+          }
+          if (url.startsWith('/api/contact/live') && method === 'GET') {
+            return sendJson(res, contactLive);
           }
           return notFound(res);
         });

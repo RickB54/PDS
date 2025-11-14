@@ -9,17 +9,40 @@ import api from "@/lib/api";
 
 const About = () => {
   const [sections, setSections] = useState<{ id: string; section: string; content: string }[]>([]);
+  const [testimonials, setTestimonials] = useState<{ id: string; name: string; quote: string }[]>([]);
+  const [features, setFeatures] = useState<{ expertTeam: string; ecoFriendly: string; satisfactionGuarantee: string }>({ expertTeam: '', ecoFriendly: '', satisfactionGuarantee: '' });
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       const list = await api('/api/about', { method: 'GET' });
       if (mounted && Array.isArray(list)) setSections(list);
     };
+    const loadTestimonials = async () => {
+      const t = await api('/api/testimonials', { method: 'GET' });
+      if (mounted && Array.isArray(t)) setTestimonials(t);
+    };
+    const loadFeatures = async () => {
+      const f = await api('/api/about/features', { method: 'GET' });
+      if (mounted && f && typeof f === 'object') setFeatures({
+        expertTeam: (f as any).expertTeam || '',
+        ecoFriendly: (f as any).ecoFriendly || '',
+        satisfactionGuarantee: (f as any).satisfactionGuarantee || '',
+      });
+    };
     load();
-    const onChanged = (e: any) => { if (e?.detail?.type === 'about') load(); };
+    loadTestimonials();
+    loadFeatures();
+    const onChanged = (e: any) => {
+      const type = e?.detail?.type || e?.detail?.kind;
+      if (type === 'about') load();
+      if (type === 'testimonials') loadTestimonials();
+      if (type === 'aboutFeatures') loadFeatures();
+    };
     window.addEventListener('content-changed', onChanged as any);
     window.addEventListener('storage', load);
-    return () => { mounted = false; window.removeEventListener('content-changed', onChanged as any); window.removeEventListener('storage', load); };
+    window.addEventListener('storage', loadTestimonials);
+    window.addEventListener('storage', loadFeatures);
+    return () => { mounted = false; window.removeEventListener('content-changed', onChanged as any); window.removeEventListener('storage', load); window.removeEventListener('storage', loadTestimonials); window.removeEventListener('storage', loadFeatures); };
   }, []);
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +114,7 @@ const About = () => {
             </Card>
           )}
 
-          {/* Features Grid */}
+          {/* Features Grid (dynamic) */}
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="p-6 bg-gradient-card border-border hover:shadow-glow transition-all">
               <div className="flex flex-col items-center text-center">
@@ -99,9 +122,7 @@ const About = () => {
                   <Users className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">Expert Team</h3>
-                <p className="text-muted-foreground">
-                  Highly trained professionals with years of experience in premium auto detailing
-                </p>
+                <p className="text-muted-foreground">{features.expertTeam || 'Highly trained professionals with years of experience in premium auto detailing'}</p>
               </div>
             </Card>
 
@@ -111,9 +132,7 @@ const About = () => {
                   <Sparkles className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">Eco-Friendly Products</h3>
-                <p className="text-muted-foreground">
-                  We use only premium, environmentally safe products that protect your vehicle and our planet
-                </p>
+                <p className="text-muted-foreground">{features.ecoFriendly || 'We use only premium, environmentally safe products that protect your vehicle and our planet'}</p>
               </div>
             </Card>
 
@@ -123,48 +142,28 @@ const About = () => {
                   <Shield className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">100% Satisfaction Guarantee</h3>
-                <p className="text-muted-foreground">
-                  Your satisfaction is our priority. We stand behind every service we provide
-                </p>
+                <p className="text-muted-foreground">{features.satisfactionGuarantee || 'Your satisfaction is our priority. We stand behind every service we provide'}</p>
               </div>
             </Card>
           </div>
 
-          {/* Testimonials */}
+          {/* Testimonials (dynamic, same styling) */}
           <section>
             <h2 className="text-3xl font-bold text-center mb-8 text-foreground">What Our Customers Say</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-6 bg-gradient-card border-border">
-                <p className="text-muted-foreground italic mb-4">
-                  "Prime Detail Solutions transformed my car! The attention to detail is incredible. 
-                  My Tesla looks brand new again. Highly recommend!"
-                </p>
-                <p className="font-semibold text-foreground">— Michael R.</p>
-              </Card>
-
-              <Card className="p-6 bg-gradient-card border-border">
-                <p className="text-muted-foreground italic mb-4">
-                  "Professional, friendly, and affordable. The ceramic coating has kept my BMW looking 
-                  pristine for months. Best detailing service in Methuen!"
-                </p>
-                <p className="font-semibold text-foreground">— Sarah K.</p>
-              </Card>
-
-              <Card className="p-6 bg-gradient-card border-border">
-                <p className="text-muted-foreground italic mb-4">
-                  "I love their mobile service! They came to my office and detailed my truck while I worked. 
-                  Convenient and exceptional results."
-                </p>
-                <p className="font-semibold text-foreground">— James D.</p>
-              </Card>
-
-              <Card className="p-6 bg-gradient-card border-border">
-                <p className="text-muted-foreground italic mb-4">
-                  "The interior cleaning was amazing. They removed pet hair and odors I thought were 
-                  permanent. My SUV smells and looks fantastic!"
-                </p>
-                <p className="font-semibold text-foreground">— Lisa M.</p>
-              </Card>
+              {testimonials.length > 0 ? (
+                testimonials.map((t) => (
+                  <Card key={t.id} className="p-6 bg-gradient-card border-border">
+                    <p className="text-muted-foreground italic mb-4">{`"${t.quote}"`}</p>
+                    <p className="font-semibold text-foreground">— {t.name}</p>
+                  </Card>
+                ))
+              ) : (
+                <Card className="p-6 bg-gradient-card border-border">
+                  <p className="text-muted-foreground italic mb-2">No testimonials yet.</p>
+                  <p className="text-sm text-muted-foreground">Add testimonials from Website Administration.</p>
+                </Card>
+              )}
             </div>
           </section>
 

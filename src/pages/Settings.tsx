@@ -61,6 +61,21 @@ const Settings = () => {
     }
   };
 
+  const handleBackupToDrive = async () => {
+    await handleBackup();
+    try {
+      window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
+      toast({ title: 'Open Google Drive', description: 'Backup downloaded. Upload it to Drive in the opened tab.' });
+    } catch {}
+  };
+
+  const handleOpenDriveRestore = () => {
+    try {
+      window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
+      toast({ title: 'Restore from Drive', description: 'Download your JSON file from Drive, then use Restore Backup.' });
+    } catch {}
+  };
+
   const handlePricingRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -116,12 +131,13 @@ const Settings = () => {
         });
         await localforage.setItem("chemicalUsage", filtered);
       } else if (type === "all") {
-        // Delete all data
+        // Delete ALL app data across localforage and localStorage
+        // IndexedDB via localforage
         await localforage.clear();
-        // Also clear pdfArchive from localStorage
-        localStorage.removeItem('pdfArchive');
-        // Clear any job records
-        localStorage.removeItem('completedJobs');
+        // LocalStorage — wipe everything including persisted backups and flags
+        try { localStorage.clear(); } catch {}
+        // Hard reload to ensure all in-memory stores reset
+        try { setTimeout(() => window.location.reload(), 300); } catch {}
       }
 
       toast({ title: "Data Deleted", description: `${type} data has been removed.` });
@@ -149,6 +165,10 @@ const Settings = () => {
                     <Download className="h-4 w-4 mr-2" />
                     Download Backup
                   </Button>
+                  <Button onClick={handleBackupToDrive} variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Backup then Open Google Drive
+                  </Button>
                   <label>
                     <Button variant="outline" asChild>
                       <span>
@@ -158,6 +178,10 @@ const Settings = () => {
                     </Button>
                     <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
                   </label>
+                  <Button variant="outline" onClick={handleOpenDriveRestore}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Open Drive to fetch backup
+                  </Button>
                   <label>
                     <Button variant="outline" asChild>
                       <span>

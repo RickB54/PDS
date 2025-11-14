@@ -69,6 +69,7 @@ const MENU_REGISTRY: { key: string; label: string }[] = [
   { key: 'discount-coupons', label: 'Discount Coupons' },
   { key: 'training-manual', label: 'Training Manual' },
   { key: 'company-employees', label: 'Company Employees' },
+  { key: 'jobs-completed-admin', label: 'Jobs Completed by Admin' },
 ];
 
 function getHiddenMenuItems(): string[] {
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
   const [unpaidInvoices, setUnpaidInvoices] = useState<number>(0);
   const [criticalInventory, setCriticalInventory] = useState<number>(0);
   const [newFilesToday, setNewFilesToday] = useState<number>(0);
+  const [adminJobsCount, setAdminJobsCount] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
   const [overdueCount, setOverdueCount] = useState<number>(0);
   // Menu visibility tick to refresh when settings change
@@ -134,6 +136,16 @@ export default function AdminDashboard() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<'employee' | 'admin'>('employee');
+  // Employee-focused User Management modal state
+  const [employeeMgmtOpen, setEmployeeMgmtOpen] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [empSearch, setEmpSearch] = useState('');
+  const [empNewName, setEmpNewName] = useState('');
+  const [empNewEmail, setEmpNewEmail] = useState('');
+  const [empNewPassword, setEmpNewPassword] = useState('');
+  const [empEditId, setEmpEditId] = useState<string | null>(null);
+  const [empEditName, setEmpEditName] = useState('');
+  const [empEditEmail, setEmpEditEmail] = useState('');
   // Website Admin state
   const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
@@ -169,6 +181,51 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (userAdminOpen) loadUsers();
   }, [userAdminOpen]);
+
+  const loadEmployees = async () => {
+    try {
+      const list = await api('/api/users/employees', { method: 'GET' });
+      setEmployees(Array.isArray(list) ? list : []);
+    } catch { setEmployees([]); }
+  };
+  useEffect(() => { if (employeeMgmtOpen) loadEmployees(); }, [employeeMgmtOpen]);
+
+  const createEmployee = async () => {
+    if (!empNewName || !empNewEmail) {
+      toast({ title: 'Name and Email required' });
+      return;
+    }
+    const res = await api('/api/users/create-employee', { method: 'POST', body: JSON.stringify({ name: empNewName, email: empNewEmail, password: empNewPassword }) });
+    if (res?.ok) {
+      setEmpNewName(''); setEmpNewEmail(''); setEmpNewPassword('');
+      await loadEmployees();
+      toast({ title: 'Employee created', description: res?.user?.email });
+    } else {
+      toast({ title: 'Failed to create employee' });
+    }
+  };
+  const updateEmployee = async () => {
+    if (!empEditId) return;
+    const res = await api('/api/users/update', { method: 'POST', body: JSON.stringify({ id: empEditId, name: empEditName, email: empEditEmail }) });
+    if (res?.ok) {
+      setEmpEditId(null); setEmpEditName(''); setEmpEditEmail('');
+      await loadEmployees();
+      toast({ title: 'Employee updated' });
+    } else {
+      toast({ title: 'Update failed' });
+    }
+  };
+  const impersonateEmployee = async (id: string) => {
+    const res = await api(`/api/users/impersonate/${id}`, { method: 'POST' });
+    if (res?.ok) { toast({ title: 'Impersonating employee', description: res?.user?.email }); }
+    else { toast({ title: 'Impersonation failed' }); }
+  };
+  const deleteEmployee = async (id: string) => {
+    if (!confirm('Delete this employee?')) return;
+    const res = await api(`/api/users/${id}`, { method: 'DELETE' });
+    if (res?.ok) { await loadEmployees(); toast({ title: 'Employee deleted' }); }
+    else { toast({ title: 'Delete failed' }); }
+  };
 
   // Load Website Admin content when modal opens and refresh on content-changed
   useEffect(() => {
@@ -402,9 +459,19 @@ export default function AdminDashboard() {
         try { localStorage.setItem('inventory_low_count', String(total)); } catch {}
       });
       // Recompute files today
-      const records = JSON.parse(localStorage.getItem('pdfArchive') || '[]');
-      const tStr = new Date().toLocaleDateString().replace(/\//g, '-');
-      setNewFilesToday(records.filter((r: any) => String(r.date).includes(tStr) && !isViewed("file", String(r.id))).length);
+    const records = JSON.parse(localStorage.getItem('pdfArchive') || '[]');
+    const tStr = new Date().toLocaleDateString().replace(/\//g, '-');
+    setNewFilesToday(records.filter((r: any) => String(r.date).includes(tStr) && !isViewed("file", String(r.id))).length);
+    // Admin jobs badge: count Job PDFs linked to checklists with employeeId 'Admin'
+    try {
+      const jobPdfs = (records as any[]).filter(r => String(r.recordType) === 'Job');
+      localforage.getItem<any[]>('generic-checklists').then((list) => {
+        const checklists = Array.isArray(list) ? list : [];
+        const merged = jobPdfs.map(pdf => ({ pdf, cl: checklists.find((c:any) => String(c.id) === String(pdf.recordId)) || null }));
+        const countAdmin = merged.filter(r => String(r.cl?.employeeId || '').toLowerCase() === 'admin').length;
+        setAdminJobsCount(countAdmin);
+      });
+    } catch {}
     };
     window.addEventListener('storage', recalc);
     return () => window.removeEventListener('storage', recalc);
@@ -441,15 +508,6 @@ export default function AdminDashboard() {
   return (
     <div>
       <PageHeader title="Admin Dashboard" />
-      {/* Top-right Website Administration button (always visible) */}
-      <div className="px-4 max-w-screen-xl mx-auto flex justify-end mt-4">
-        <Link to="/website-admin">
-          <Button size="sm" className="bg-red-600 text-white hover:bg-red-700 gap-2">
-            <Shield className="h-4 w-4" />
-            Website Administration
-          </Button>
-        </Link>
-      </div>
       <div className="p-4 space-y-6 max-w-screen-xl mx-auto overflow-x-hidden">
         {/* Removed top-right Website Administration button; now a dashboard box below */}
         {/* Real-time Alerts banner with deep purple background */}
@@ -494,6 +552,22 @@ export default function AdminDashboard() {
               <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Open</Button>
             </Link>
           </Card>
+          {/* User Management (Employees only) quick action */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-red-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(220,38,38,0.35)]">
+            <div className="flex items-start">
+              <div className="flex-1">
+                <div className="text-lg font-semibold text-red-700">User Management</div>
+                <div className="text-sm text-zinc-400">Employee Rights — Port 6061</div>
+              </div>
+              <Users className="w-8 h-8 text-red-600/80" />
+            </div>
+            <Link to="/user-management" className="block mt-3">
+              <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open</Button>
+            </Link>
+          </Card>
+          {!isMenuHidden('jobs-completed-admin') && (
+            <RedBox title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
+          )}
           {!isMenuHidden('bookings') && (
             <RedBox title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
           )}
@@ -694,6 +768,14 @@ export default function AdminDashboard() {
                                 await api(`/api/vehicle-types/${vt.id}`, { method: 'DELETE' });
                                 const updated = await api('/api/vehicle-types', { method: 'GET' });
                                 setVehicleTypes(Array.isArray(updated) ? updated : []);
+                                // Push live vehicle types to server so all dropdowns immediately reflect deletion
+                                try {
+                                  await fetch('http://localhost:6061/api/vehicle-types/live', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(Array.isArray(updated) ? updated : []),
+                                  });
+                                } catch {}
                                 try { await postFullSync(); } catch {}
                                 try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
                                 toast({ title: 'Vehicle type deleted', description: vt.name });
@@ -780,8 +862,17 @@ export default function AdminDashboard() {
                   </div>
                   <div className="mt-3">
                     <Button className="bg-red-700 hover:bg-red-800" onClick={async () => {
-              await api('/api/contact/update', { method: 'POST', body: JSON.stringify(contactInfo) });
-                      toast({ title: 'Contact updated', description: 'Synced to Contact page' });
+                      await api('/api/contact/update', { method: 'POST', body: JSON.stringify(contactInfo) });
+                      // Push to live endpoint on 6061 so Contact page reflects changes immediately
+                      try {
+                        await fetch('http://localhost:6061/api/contact/live', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(contactInfo),
+                        });
+                      } catch {}
+                      try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'contact' } })); } catch {}
+                      toast({ title: 'Contact updated', description: 'Synced live on port 6061' });
                     }}>Save Contact</Button>
                   </div>
                 </div>
@@ -852,6 +943,14 @@ export default function AdminDashboard() {
                           await api(`/api/vehicle-types/${editVehicle.id}`, { method: 'PUT', body: JSON.stringify({ name: editVehicle.name, description: editVehicle.description }) });
                           const updated = await api('/api/vehicle-types', { method: 'GET' });
                           setVehicleTypes(Array.isArray(updated) ? updated : []);
+                          // Push live vehicle types to server so all dropdowns reflect edits immediately
+                          try {
+                            await fetch('http://localhost:6061/api/vehicle-types/live', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(Array.isArray(updated) ? updated : []),
+                            });
+                          } catch {}
                           // Notify other pages and trigger live refresh
                           try { await postFullSync(); } catch {}
                           try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
@@ -1066,6 +1165,107 @@ export default function AdminDashboard() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </DialogContent>
+        </Dialog>
+
+        {/* User Management — Employee Rights Modal */}
+        <Dialog open={employeeMgmtOpen} onOpenChange={setEmployeeMgmtOpen}>
+          <DialogContent className="max-w-none w-screen h-screen sm:rounded-none p-0 bg-black text-white overflow-hidden">
+            <DialogHeader className="px-6 pt-6">
+              <DialogTitle className="text-red-500">User Management — Employee Rights</DialogTitle>
+            </DialogHeader>
+            <div className="px-6 pb-6 space-y-6 h-[calc(100%-4rem)] overflow-auto">
+              {/* Search */}
+              <div className="grid grid-cols-1 gap-4">
+                <Input value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} placeholder="Search employees" className="bg-zinc-900 border-zinc-700 text-white" />
+              </div>
+
+              {/* Employee List */}
+              <Card className="p-4 bg-zinc-900 border-zinc-800">
+                <h3 className="text-lg font-semibold mb-4">Employees</h3>
+                <div className="w-full overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-zinc-300">Name</TableHead>
+                        <TableHead className="text-zinc-300">Email</TableHead>
+                        <TableHead className="text-zinc-300">Role</TableHead>
+                        <TableHead className="text-zinc-300">Last Login</TableHead>
+                        <TableHead className="text-zinc-300">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {employees.filter((u) => {
+                        const q = empSearch.trim().toLowerCase();
+                        const combo = `${u.name || ''} ${u.email || ''}`.toLowerCase();
+                        return !q || combo.includes(q);
+                      }).map((u) => (
+                        <TableRow key={u.id}>
+                          <TableCell className="text-white">
+                            {empEditId === u.id ? (
+                              <Input value={empEditName} onChange={(e) => setEmpEditName(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
+                            ) : (
+                              u.name
+                            )}
+                          </TableCell>
+                          <TableCell className="text-white">
+                            {empEditId === u.id ? (
+                              <Input value={empEditEmail} onChange={(e) => setEmpEditEmail(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
+                            ) : (
+                              u.email
+                            )}
+                          </TableCell>
+                          <TableCell className="text-zinc-300">Employee</TableCell>
+                          <TableCell className="text-zinc-300">{u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '—'}</TableCell>
+                          <TableCell className="space-x-2">
+                            {empEditId === u.id ? (
+                              <>
+                                <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={updateEmployee}>Save</Button>
+                                <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-300" onClick={() => { setEmpEditId(null); setEmpEditName(''); setEmpEditEmail(''); }}>Cancel</Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button size="sm" variant="outline" className="border-red-700 text-red-700 hover:bg-red-700/10" onClick={() => { setEmpEditId(u.id); setEmpEditName(u.name || ''); setEmpEditEmail(u.email || ''); }}>Edit</Button>
+                                <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => impersonateEmployee(u.id)}>Impersonate</Button>
+                                <Button size="sm" variant="outline" className="border-red-700 text-red-700 hover:bg-red-700/10" onClick={() => deleteEmployee(u.id)}>Delete</Button>
+                              </>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {employees.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-zinc-400 py-8">No employees found.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+
+              {/* Add New Employee */}
+              <Card className="p-4 bg-zinc-900 border-zinc-800">
+                <h3 className="text-lg font-semibold mb-4">Add New Employee</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-sm text-zinc-400">Name</label>
+                    <Input value={empNewName} onChange={(e) => setEmpNewName(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-400">Email</label>
+                    <Input value={empNewEmail} onChange={(e) => setEmpNewEmail(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-400">Password</label>
+                    <Input value={empNewPassword} onChange={(e) => setEmpNewPassword(e.target.value)} placeholder="Blank to auto-generate" className="bg-zinc-800 border-zinc-700 text-white" />
+                  </div>
+                  <div className="flex items-end">
+                    <Button className="bg-red-700 hover:bg-red-800" onClick={createEmployee}>Create Employee</Button>
+                  </div>
+                </div>
+              </Card>
+
+            </div>
           </DialogContent>
         </Dialog>
       </div>
