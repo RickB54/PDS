@@ -210,7 +210,7 @@ export default function Tasks() {
           )}
 
           {view === 'kanban' && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {(['not_started','in_progress','waiting','completed'] as TaskStatus[]).map((col) => (
                 <Card key={col} className="p-3 bg-[#0f0f13] border border-zinc-800 rounded-xl">
                   <div className="font-semibold mb-2">{statuses.find(s=>s.key===col)?.label}</div>
@@ -260,11 +260,11 @@ export default function Tasks() {
             <div className="space-y-2">
               <Input value={editing.title} onChange={(e)=>setEditing({ ...editing, title: e.target.value })} />
               <Input value={editing.description||''} onChange={(e)=>setEditing({ ...editing, description: e.target.value })} placeholder="Description" />
-              <div className="grid grid-cols-2 gap-2">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <Input type="date" value={editing.dueDate||''} onChange={(e)=>setEditing({ ...editing, dueDate: e.target.value })} />
                 <Input type="time" value={editing.dueTime||''} onChange={(e)=>setEditing({ ...editing, dueTime: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <Select value={editing.priority} onValueChange={(v)=>setEditing({ ...editing, priority: v as TaskPriority })} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -281,7 +281,7 @@ export default function Tasks() {
               {isAdmin && (
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Assign to employees</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {employees.map((e:any) => {
                     const key = String(e.email || e.name || e.id || '').trim();
                     const selected = Array.isArray((editing as any).assignees) ? (editing as any).assignees : (editing?.assigneeId ? [{ name: editing?.assigneeId }] : []);

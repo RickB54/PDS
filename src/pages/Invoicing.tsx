@@ -434,10 +434,10 @@ const Invoicing = () => {
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteId && handleDeleteInvoice(deleteId)}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

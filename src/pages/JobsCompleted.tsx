@@ -141,7 +141,7 @@ export default function JobsCompleted() {
       </div>
 
       <Card className="p-4 bg-gradient-card border-border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <div>
             <p className="text-sm text-muted-foreground mb-1">Filter</p>
             <Select value={preset} onValueChange={(v) => setPreset(v as FilterPreset)}>

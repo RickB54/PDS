@@ -31,7 +31,7 @@ const Login = () => {
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-foreground">Sign In</h2>
             <p className="text-sm text-muted-foreground">Choose your role to continue.</p>
-            <div className="grid grid-cols-2 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Button
                 onClick={() => handleQuickAccess('employee')}
                 variant="outline"

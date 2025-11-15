@@ -88,7 +88,7 @@ export default function DiscountCoupons() {
                 <label className="text-xs text-muted-foreground">Title</label>
                 <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Type</label>
                   <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
@@ -116,4 +116,3 @@ export default function DiscountCoupons() {
     </div>
   );
 }
-

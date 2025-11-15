@@ -291,7 +291,7 @@ const Settings = () => {
               />
             </div>
           )}
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteData(deleteDialog!)}
@@ -300,7 +300,7 @@ const Settings = () => {
             >
               Yes, Delete {deleteDialog === "all" ? "Everything" : "Data"}
             </AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

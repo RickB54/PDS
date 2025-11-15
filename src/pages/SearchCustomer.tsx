@@ -443,12 +443,12 @@ const filterByDate = (customer: Customer) => {
               This will permanently delete this customer record. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>No</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive">
               Yes
             </AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

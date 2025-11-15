@@ -27,8 +27,8 @@ export function PageHeader({ title }: PageHeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-20 items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-4">
+        <div className="flex h-20 items-center justify-between gap-4 px-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap min-w-0">
             <SidebarTrigger className="text-foreground" />
             <button onClick={() => setShowAbout(true)} className="flex items-center gap-3">
               <img src={logo} alt="Prime Detail Solutions" className="h-12 w-auto" />
@@ -36,12 +36,12 @@ export function PageHeader({ title }: PageHeaderProps) {
             {title && (
               <>
                 <span className="text-muted-foreground">/</span>
-                <span className="text-muted-foreground font-medium">{title}</span>
+                <span className="text-muted-foreground font-medium truncate max-w-[40vw] sm:max-w-[60vw]">{title}</span>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap min-w-0">
             <Button variant="ghost" size="sm" onClick={() => setShowAbout(true)} className="gap-2">
               <Info className="h-4 w-4" />
               About
@@ -59,9 +59,9 @@ export function PageHeader({ title }: PageHeaderProps) {
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2 truncate max-w-[50vw] sm:max-w-none">
                     <User className="h-4 w-4 text-purple-500" />
-                    Hi, {user.email}
+                    <span className="truncate">Hi, {user.email}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

@@ -840,7 +840,7 @@ export default function PackagePricing() {
           <h2 className="text-2xl font-bold text-white mb-4">Edit Pricing</h2>
           <p className="text-zinc-400 mb-6">Changes apply everywhere, including the live website.</p>
 
-          <div className="flex items-center gap-4 flex-wrap max-w-full">
+          <div className="button-group-responsive flex items-center gap-4 flex-wrap md:flex-nowrap max-w-full min-w-0">
             <div className="flex items-center gap-3">
               <input 
                 type="number" 
@@ -885,14 +885,14 @@ export default function PackagePricing() {
             </Button>
 
             {/* View selection toggle */}
-            <div className="flex items-center gap-2">
+            <div className="button-group-responsive flex items-center gap-2">
               <Button size="sm" variant={view === 'packages' ? 'default' : 'outline'} onClick={() => setView('packages')}>Show Packages</Button>
               <Button size="sm" variant={view === 'addons' ? 'default' : 'outline'} onClick={() => setView('addons')}>Show Add-Ons</Button>
               <Button size="sm" variant={view === 'both' ? 'default' : 'outline'} onClick={() => setView('both')}>Show Both</Button>
             </div>
 
             {/* Vehicle type selector */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Label className="text-white">Vehicle</Label>
               <Select value={vehicleType} onValueChange={(v) => setVehicleType(v)}>
                 <SelectTrigger className="w-40 bg-zinc-900 border-zinc-700 text-white">
@@ -964,14 +964,14 @@ export default function PackagePricing() {
 
         {/* Packages grid */}
         {(view === "packages" || view === "both") && (
-        <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[...builtInPackages, ...getCustomPackages()].filter(pkg => !getPackageMeta(pkg.id)?.deleted).map(pkg => (
             <Card key={pkg.id} className="p-4 space-y-3">
               <h3 className="font-semibold">{pkg.name}</h3>
               {/* Picture Upload Area (packages only) */}
-              <div className="flex items-center gap-3">
-                <img src={getLiveImage(pkg.id)} alt={pkg.name} className="w-[300px] h-[200px] object-cover rounded border border-zinc-700 shadow" />
-                <div>
+              <div className="flex flex-col md:flex-row md:flex-nowrap items-start gap-3">
+                <img src={getLiveImage(pkg.id)} alt={pkg.name} className="w-full md:w-[300px] md:h-[200px] object-contain md:shrink-0 rounded border border-zinc-700 shadow" />
+                <div className="min-w-0 flex-1 w-full">
                   <Label className="text-xs text-white mb-1 block">Change Package Image</Label>
                   <input type="file" accept="image/png,image/jpeg" onChange={(e) => e.target.files && handleImageUpload(pkg.id, e.target.files[0])} />
               <div className="mt-2 flex items-center gap-2">
@@ -1004,7 +1004,7 @@ export default function PackagePricing() {
                   />
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap max-w-full">
+            <div className="button-group-responsive flex gap-2 flex-wrap md:flex-nowrap max-w-full">
                 <Button variant="outline" onClick={() => applyIncrease(pkg.id, 5)}>Apply 5%</Button>
                 <Button variant="outline" onClick={() => applyIncrease(pkg.id, 10)}>Apply 10%</Button>
                 <Button variant="outline" onClick={() => reset(pkg.id)}>Reset</Button>
@@ -1026,10 +1026,10 @@ export default function PackagePricing() {
                       <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
                       <AlertDialogDescription>This will remove the package from admin and live site.</AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
+            <AlertDialogFooter className="button-group-responsive">
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={() => confirmDelete('package', pkg.id)}>Yes, delete</AlertDialogAction>
-                    </AlertDialogFooter>
+            </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
@@ -1040,7 +1040,7 @@ export default function PackagePricing() {
 
         {/* Add-ons grid */}
         {(view === "addons" || view === "both") && (
-        <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[...builtInAddOns, ...getCustomAddOns()].filter(a => !getAddOnMeta(a.id)?.deleted).map(addon => (
             <Card key={addon.id} className="p-4 space-y-3">
               <h3 className="font-semibold">{addon.name}</h3>
@@ -1072,7 +1072,7 @@ export default function PackagePricing() {
                   />
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap max-w-full">
+            <div className="button-group-responsive flex gap-2 flex-wrap md:flex-nowrap max-w-full">
                 <Button variant="outline" onClick={() => {
                   const sizes: string[] = builtInSizes;
                   const factor = 1 + (5/100);
@@ -1123,10 +1123,10 @@ export default function PackagePricing() {
                       <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
                       <AlertDialogDescription>This will remove the add-on from admin and live site.</AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
+            <AlertDialogFooter className="button-group-responsive">
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={() => confirmDelete('addon', addon.id)}>Yes, delete</AlertDialogAction>
-                    </AlertDialogFooter>
+            </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
@@ -1147,7 +1147,7 @@ export default function PackagePricing() {
 
         {/* Edit Services Modal */}
         <Dialog open={!!editServicesFor} onOpenChange={(o) => { if (!o) { setEditServicesFor(null); setEditServicesType(null); } }}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[95vw] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Services</DialogTitle>
             </DialogHeader>
@@ -1184,7 +1184,7 @@ export default function PackagePricing() {
                 ))}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="button-group-responsive">
               <Button onClick={saveEditServices} className="bg-red-600">Save</Button>
             </DialogFooter>
           </DialogContent>
@@ -1192,14 +1192,14 @@ export default function PackagePricing() {
 
         {/* Add New Package Modal */}
         <Dialog open={addPackageOpen} onOpenChange={setAddPackageOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[95vw] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Package</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <img src={newPkgForm.imageDataUrl || packageBasic} className="w-[300px] h-[200px] object-cover rounded border shadow" />
-                <div>
+              <div className="flex flex-wrap md:flex-nowrap items-start gap-4">
+                <img src={newPkgForm.imageDataUrl || packageBasic} className="shrink-0 w-[300px] h-[200px] object-cover rounded border shadow" />
+                <div className="min-w-0 flex-1">
                   <Label className="text-xs">Change Package Image</Label>
                   <input type="file" accept="image/png,image/jpeg" onChange={(e) => {
                     const f = e.target.files?.[0]; if (!f) return;
@@ -1241,7 +1241,7 @@ export default function PackagePricing() {
                 <Label>Description</Label>
                 <Input value={newPkgForm.description} onChange={(e) => setNewPkgForm(prev => ({ ...prev, description: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {vehicleOptions.map(sz => (
                   <div key={sz}>
                     <label className="text-xs text-muted-foreground">{vehicleLabels[sz] || sz}</label>
@@ -1251,7 +1251,7 @@ export default function PackagePricing() {
                 ))}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="button-group-responsive">
               <Button onClick={handleNewPackageSave} className="bg-red-600">Create Package</Button>
             </DialogFooter>
           </DialogContent>
@@ -1259,7 +1259,7 @@ export default function PackagePricing() {
 
         {/* Add New Add-On Modal */}
         <Dialog open={addAddonOpen} onOpenChange={setAddAddonOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[95vw] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Add-On</DialogTitle>
             </DialogHeader>
@@ -1268,7 +1268,7 @@ export default function PackagePricing() {
                 <Label>Name</Label>
                 <Input value={newAddonForm.name} onChange={(e) => setNewAddonForm(prev => ({ ...prev, name: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {vehicleOptions.map(sz => (
                   <div key={sz}>
                     <label className="text-xs text-muted-foreground">{vehicleLabels[sz] || sz}</label>
@@ -1278,14 +1278,14 @@ export default function PackagePricing() {
                 ))}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="button-group-responsive">
               <Button onClick={handleNewAddonSave} className="bg-red-600">Create Add-On</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         {/* View All Prices Modal */}
         <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="sm:max-w-[95vw] lg:max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Current Live Pricing — Prime Detail Solutions</DialogTitle>
             </DialogHeader>

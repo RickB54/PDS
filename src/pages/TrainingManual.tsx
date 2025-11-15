@@ -14,7 +14,7 @@ const TrainingManual = () => {
           <p className="text-muted-foreground mb-6">Complete Interior & Exterior Process + Product & Equipment Guides</p>
 
           <Tabs defaultValue="hardware" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
+<TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 mb-6">
               <TabsTrigger value="hardware">Hardware</TabsTrigger>
               <TabsTrigger value="chemicals">Chemicals</TabsTrigger>
               <TabsTrigger value="process">Process</TabsTrigger>

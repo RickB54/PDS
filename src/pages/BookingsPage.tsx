@@ -436,7 +436,7 @@ export default function BookingsPage() {
 
   function MonthView() {
     return (
-      <div className="grid grid-cols-7 gap-2">
+  <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
         {monthDays.map((day, idx) => (
           <div key={idx} className={`p-2 rounded-lg border ${isSameMonth(day, monthDate) ? "border-zinc-800" : "border-zinc-900 opacity-60"}`}>
             <div className="text-xs text-zinc-400">{format(day, "d")}</div>
@@ -578,7 +578,7 @@ export default function BookingsPage() {
                 </>
               )}
               <div className="text-sm text-zinc-300">Date: {format(parseISO(selected.date), "PPP p")}</div>
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="button-group-responsive flex flex-wrap gap-2 pt-2">
                 {isAdmin && (
                   <>
                     <Button className="bg-red-700 hover:bg-red-800" onClick={() => update(selected.id, { status: "pending" })}>Pending</Button>
@@ -592,7 +592,7 @@ export default function BookingsPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="button-group-responsive">
             <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>

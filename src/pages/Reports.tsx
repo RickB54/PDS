@@ -234,7 +234,7 @@ const Reports = () => {
           </Card>
 
           <Tabs defaultValue="customers" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-muted">
+<TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-5 bg-muted">
               <TabsTrigger value="customers">Customers</TabsTrigger>
               <TabsTrigger value="invoices">Invoices</TabsTrigger>
               <TabsTrigger value="inventory">Inventory</TabsTrigger>
@@ -287,7 +287,7 @@ const Reports = () => {
                     return (
                       <div className="mt-4 p-4 bg-muted/20 rounded-lg">
                         <h3 className="font-bold text-lg mb-2">{cust?.name}</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-3">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                           <div>
                             <p className="text-xs text-muted-foreground">Total Spent</p>
                             <p className="text-xl font-bold text-primary">${totalSpent.toFixed(2)}</p>
@@ -320,7 +320,7 @@ const Reports = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Total Invoices</p>
                     <p className="text-2xl font-bold text-foreground">{filterByDate(invoices).length}</p>
@@ -363,7 +363,7 @@ const Reports = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                   <div>
                     <p className="text-xs text-muted-foreground">Total Chemicals</p>
                     <p className="text-2xl font-bold text-foreground">{chemicals.length}</p>

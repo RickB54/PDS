@@ -222,7 +222,7 @@ export default function UserManagement() {
       {/* Add New Employee */}
       <Card className="p-4 bg-zinc-900 border-zinc-800">
         <h3 className="text-lg font-semibold mb-4">Add New Employee</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-sm text-zinc-400">Name</label>
             <Input value={empNewName} onChange={(e) => setEmpNewName(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
@@ -243,4 +243,3 @@ export default function UserManagement() {
     </div>
   );
 }
-

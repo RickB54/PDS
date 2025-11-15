@@ -106,6 +106,25 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
+  }
+}
+
+/* Utility: hide scrollbars when applied (used on mobile slide-out menu) */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Responsive button group utility: stack on mobile, row on desktop */
+.button-group-responsive {
+  @apply flex flex-wrap gap-2;
+}
+@media (max-width: 640px) {
+  .button-group-responsive {
+    @apply flex-col items-stretch w-full;
   }
 }

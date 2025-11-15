@@ -152,7 +152,7 @@ const EmployeeDashboard = () => {
           </div>
 
           {/* Big cards arranged in two rows (2 columns on md+) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link to="/service-checklist" className="block">
               <Card className="p-6 bg-green-700 text-white rounded-xl">
                 <div className="text-2xl font-bold">SERVICE CHECKLIST</div>
@@ -187,7 +187,7 @@ const EmployeeDashboard = () => {
           </div>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <Link to="/tasks" className="block">
               <Card className="p-4 text-center bg-muted/30 hover:bg-muted/50 transition rounded-xl">
                 <div className="font-semibold text-white">Todo</div>
@@ -210,7 +210,7 @@ const EmployeeDashboard = () => {
           <Card className="p-6 bg-gradient-card border-border">
             <div className="text-xl font-bold text-foreground mb-4">NOTIFY ADMIN</div>
             <form onSubmit={handleNotifyAdmin} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Input placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
                 <Select value={priority} onValueChange={setPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -304,7 +304,7 @@ const EmployeeDashboard = () => {
               This action cannot be undone. The selected tip will be removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive" onClick={() => {
               if (deleteIndex === null) return;
@@ -313,7 +313,7 @@ const EmployeeDashboard = () => {
               setDeleteIndex(null);
               toast({ title: 'Deleted', description: 'Tip removed.' });
             }}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} role={(user?.role === 'admin') ? 'admin' : 'employee'} />

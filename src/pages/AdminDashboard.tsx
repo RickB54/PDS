@@ -104,7 +104,7 @@ function MenuVisibilityControls() {
     toast({ title: 'Menu visibility updated', description: `${show ? 'Showing' : 'Hiding'} ${MENU_REGISTRY.find(i => i.key === key)?.label || key}` });
   };
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
       {MENU_REGISTRY.map((item) => {
         const shown = !hidden.includes(item.key);
         return (
@@ -571,7 +571,7 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Eight grouped boxes with combined menu items in a 3x3-style grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Training Hub */}
           <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
             <div className="flex items-center gap-2 mb-3">
@@ -843,7 +843,7 @@ export default function AdminDashboard() {
               {/* Section 2: Add New User */}
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <h3 className="text-lg font-semibold mb-4">Add New User</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="text-sm text-zinc-400">Name</label>
                     <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
@@ -877,7 +877,7 @@ export default function AdminDashboard() {
               {/* Section 3: Impersonate */}
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <h3 className="text-lg font-semibold mb-4">Impersonate</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <div>
                     <label className="text-sm text-zinc-400">Select User</label>
                     <Select value={impersonateId || ''} onValueChange={(val) => setImpersonateId(val)}>
@@ -1014,7 +1014,7 @@ export default function AdminDashboard() {
                 {/* Contact */}
                 <div className="mb-6">
                   <h4 className="font-semibold mb-2">Contact</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-zinc-300">Hours</Label>
                       <textarea className="w-full rounded-md bg-zinc-800 border-zinc-700 text-white p-2 h-28" value={contactInfo.hours} onChange={(e) => setContactInfo({ ...contactInfo, hours: e.target.value })} />
@@ -1331,10 +1331,10 @@ export default function AdminDashboard() {
                   <AlertDialogTitle>Delete user?</AlertDialogTitle>
                   <AlertDialogDescription>This will remove the user permanently.</AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction className="bg-destructive" onClick={() => deleteId && handleDelete(deleteId)}>Yes, Delete</AlertDialogAction>
-                </AlertDialogFooter>
+</AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </DialogContent>
@@ -1418,7 +1418,7 @@ export default function AdminDashboard() {
               {/* Add New Employee */}
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <h3 className="text-lg font-semibold mb-4">Add New Employee</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="text-sm text-zinc-400">Name</label>
                     <Input value={empNewName} onChange={(e) => setEmpNewName(e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />

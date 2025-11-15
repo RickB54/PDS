@@ -73,7 +73,7 @@ export default function Bookings() {
 
         {/* Month grid with drag-to-reschedule */}
         <Card className="p-2">
-          <div className="grid grid-cols-7 gap-2">
+  <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
             {days.map(day => {
               const dayStr = formatDate(day);
               const dayBookings = filtered.filter(b => b.date === dayStr);

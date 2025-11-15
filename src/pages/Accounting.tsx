@@ -200,7 +200,7 @@ const Accounting = () => {
               <TrendingUp className="h-6 w-6 text-primary" />
               Revenue Tracking (Auto-Calculated)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-4 bg-background/50 rounded-lg border border-border">
                 <Label className="text-muted-foreground">Daily Revenue</Label>
                 <p className="text-3xl font-bold text-foreground mt-2">
@@ -373,12 +373,12 @@ const Accounting = () => {
               This will clear the current expense input. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>No</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setExpenses(""); setExpenseDesc(""); setShowDeleteExpense(false); }}>
               Yes
             </AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -390,12 +390,12 @@ const Accounting = () => {
               This will permanently delete your notes. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>No</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setNotes(""); setShowDeleteNotes(false); }}>
               Yes
             </AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

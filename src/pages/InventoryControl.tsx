@@ -374,7 +374,7 @@ const InventoryControl = () => {
             <DialogTitle>Material Updates</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Material</Label>
                 <select value={updateMatId} onChange={(e) => setUpdateMatId(e.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
@@ -411,7 +411,7 @@ const InventoryControl = () => {
               </select>
             </div>
           </div>
-          <DialogFooter>
+<DialogFooter className="button-group-responsive">
             <Button
               variant="outline"
               onClick={() => {
@@ -466,7 +466,7 @@ const InventoryControl = () => {
               setUpdateMatId(''); setUpdateMatQtyNote(''); setUpdateChemId(''); setUpdateChemFraction(''); setUpdateChecklistText(''); setUpdateNotes('');
               toast({ title: 'Update Saved', description: 'Usage history updated and employee notified.' });
             }}>Save Update</Button>
-          </DialogFooter>
+</DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

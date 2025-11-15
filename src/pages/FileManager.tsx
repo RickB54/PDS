@@ -252,7 +252,7 @@ interface PDFRecord {
 
           {/* Filters */}
           <Card className="p-4 bg-gradient-card border-border">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -425,7 +425,7 @@ interface PDFRecord {
               This action cannot be undone. The file will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+<AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => deleteId && handleDelete(deleteId)}
@@ -433,7 +433,7 @@ interface PDFRecord {
             >
               Yes, Delete
             </AlertDialogAction>
-          </AlertDialogFooter>
+</AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -444,7 +444,7 @@ interface PDFRecord {
             <DialogTitle>Create Admin Update PDF</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">Date/Time</label>
                 <Input value={new Date().toLocaleString()} readOnly />
@@ -458,7 +458,7 @@ interface PDFRecord {
               <label className="text-sm text-muted-foreground">Large Notes</label>
               <textarea className="w-full h-48 p-3 rounded-md border border-border bg-background" value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Write updates, notes, issues…" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">P&L Summary</label>
                 <Input value={adminPnl} onChange={(e) => setAdminPnl(e.target.value)} placeholder="Brief P&L summary" />
@@ -485,7 +485,7 @@ interface PDFRecord {
             </div>
             <div>
               <label className="text-sm text-muted-foreground">Employee Progress</label>
-              <div className="grid grid-cols-4 gap-2 text-sm items-center">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm items-center">
                 <div className="font-semibold">Name</div>
                 <div className="font-semibold">Training %</div>
                 <div className="font-semibold">Jobs Today</div>

@@ -271,7 +271,7 @@ const CompanyEmployees = () => {
               </Button>
             </div>
             {selectedEmployee && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(() => { const emp = employees.find(e => e.email === selectedEmployee); const lastPaid = (emp as any)?.lastPaid || '—'; const owed = owedMap[selectedEmployee] || 0; return (
                 <>
                   <div className="p-3 rounded border border-border">
@@ -291,7 +291,7 @@ const CompanyEmployees = () => {
           {/* All Employees */}
           <Card className="p-6 bg-gradient-card border-border">
             <h2 className="text-xl font-bold text-foreground mb-4">All Employees</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {employees.map((emp) => (
                 <div key={emp.email} className="p-3 rounded border border-border">
                   <p className="font-medium text-foreground">{emp.name}</p>
@@ -306,7 +306,7 @@ const CompanyEmployees = () => {
           </Card>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card className="p-6 bg-gradient-card border-border">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/20 rounded-lg">
@@ -456,7 +456,7 @@ const CompanyEmployees = () => {
                 <option>Admin</option>
               </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Flat Rate</Label>
                 <Input type="number" step="0.01" value={form.flatRate} onChange={(e) => setForm({ ...form, flatRate: e.target.value })} placeholder="e.g., 20.00" />
@@ -473,7 +473,7 @@ const CompanyEmployees = () => {
             {form.paymentByJob && (
               <div className="mt-2 space-y-2">
                 <Label>Job Rate Editor (per service/add-on payout)</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto p-2 border rounded">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto p-2 border rounded">
                   {[...servicePackages.map((p: any) => ({ id: p.id, name: p.name })), ...addOns.map((a: any) => ({ id: a.id, name: a.name }))].map((item: any) => (
                     <div key={item.id} className="space-y-1">
                       <Label className="text-xs">{item.name}</Label>
@@ -484,9 +484,9 @@ const CompanyEmployees = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+<DialogFooter className="button-group-responsive">
             <Button className="bg-gradient-hero" onClick={handleSave}>Save</Button>
-          </DialogFooter>
+</DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -567,7 +567,7 @@ const addJobRowFromCompleted = (job: any) => {
             <> 
             <Card className="p-6 bg-gradient-card border-border">
             <h2 className="text-2xl font-bold text-foreground mb-4">Pay Period</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Start Date</Label>
                 <Input type="date" className="border-red-600 text-white" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
