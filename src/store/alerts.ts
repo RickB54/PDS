@@ -62,6 +62,12 @@ function mapAlert(a: AdminAlert): UIAlert {
     case "todo_overdue":
       href = "/tasks";
       break;
+    case "todo_completed":
+    case "todo_acknowledged":
+    case "todo_comment":
+    case "todo_updated":
+      href = "/tasks";
+      break;
     case "job_progress":
       href = "/checklist";
       break;

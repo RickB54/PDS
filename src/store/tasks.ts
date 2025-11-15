@@ -1,12 +1,18 @@
 import { create } from "zustand";
 import localforage from "localforage";
 import { pushAdminAlert } from "@/lib/adminAlerts";
+import { pushEmployeeNotification } from "@/lib/employeeNotifications";
+import { getCurrentUser } from "@/lib/auth";
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
-export type TaskStatus = "not_started" | "in_progress" | "waiting" | "completed";
+export type TaskStatus = "not_started" | "in_progress" | "waiting" | "completed" | "acknowledged";
 
 export interface TaskChecklistItem { id: string; text: string; done: boolean; }
 export interface TaskAttachment { id: string; name: string; url: string; type?: string; size?: number; }
+
+export interface TaskAssignee { email?: string; name?: string }
+export interface TaskComment { id: string; authorEmail?: string; authorName?: string; text: string; createdAt: string }
+export interface TaskReadReceipt { user: string; viewedAt: string }
 
 export interface Task {
   id: string;
@@ -19,10 +25,14 @@ export interface Task {
   customerId?: string;
   vehicleId?: string;
   workOrderId?: string;
+  // Deprecated: assigneeId kept in persisted data for backward-compat, use assignees
   assigneeId?: string; // name or id string
+  assignees: TaskAssignee[];
   notes?: string;
   checklist: TaskChecklistItem[];
   attachments: TaskAttachment[];
+  readReceipts: TaskReadReceipt[];
+  comments: TaskComment[];
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
   order: number; // for manual ordering
@@ -51,6 +61,8 @@ interface TasksState {
   clearSelection: () => void;
   bulkComplete: (ids: string[]) => Promise<void>;
   bulkDelete: (ids: string[]) => Promise<void>;
+  markRead: (id: string, userKey?: string) => Promise<void>;
+  addComment: (id: string, comment: { text: string; authorEmail?: string; authorName?: string }) => Promise<void>;
 }
 
 const STORAGE_KEY = "tasks";
@@ -60,12 +72,15 @@ async function load(): Promise<Task[]> {
     const list = (await localforage.getItem(STORAGE_KEY)) || [];
     const arr = Array.isArray(list) ? (list as Task[]) : [];
     if (arr.length > 0) {
-      return arr.map((t) => ({
+      return arr.map((t: any) => ({
         ...t,
         checklist: Array.isArray(t.checklist) ? t.checklist : [],
         attachments: Array.isArray(t.attachments) ? t.attachments : [],
         priority: (t.priority as TaskPriority) || "medium",
         status: (t.status as TaskStatus) || "not_started",
+        assignees: Array.isArray((t as any).assignees) ? (t as any).assignees : (t.assigneeId ? [{ name: t.assigneeId }] : []),
+        readReceipts: Array.isArray((t as any).readReceipts) ? (t as any).readReceipts : [],
+        comments: Array.isArray((t as any).comments) ? (t as any).comments : [],
         order: typeof t.order === 'number' ? t.order : 0,
       }));
     }
@@ -75,12 +90,15 @@ async function load(): Promise<Task[]> {
     const raw = localStorage.getItem(STORAGE_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     if (Array.isArray(arr)) {
-      return (arr as Task[]).map((t) => ({
+      return (arr as any[]).map((t: any) => ({
         ...t,
         checklist: Array.isArray(t.checklist) ? t.checklist : [],
         attachments: Array.isArray(t.attachments) ? t.attachments : [],
         priority: (t.priority as TaskPriority) || "medium",
         status: (t.status as TaskStatus) || "not_started",
+        assignees: Array.isArray(t.assignees) ? t.assignees : (t.assigneeId ? [{ name: t.assigneeId }] : []),
+        readReceipts: Array.isArray(t.readReceipts) ? t.readReceipts : [],
+        comments: Array.isArray(t.comments) ? t.comments : [],
         order: typeof t.order === 'number' ? t.order : 0,
       }));
     }
@@ -127,9 +145,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       vehicleId: t.vehicleId,
       workOrderId: t.workOrderId,
       assigneeId: t.assigneeId,
+      assignees: Array.isArray((t as any).assignees) ? ((t as any).assignees as TaskAssignee[]) : (t.assigneeId ? [{ name: t.assigneeId }] : []),
       notes: t.notes || '',
       checklist: Array.isArray(t.checklist) ? t.checklist : [],
       attachments: Array.isArray(t.attachments) ? t.attachments : [],
+      readReceipts: [],
+      comments: [],
       createdAt: now,
       updatedAt: now,
       order,
@@ -147,13 +168,42 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         }
       }
     } catch {}
+    // Notify assigned employees on creation
+    try {
+      (record.assignees || []).forEach(a => {
+        const key = String(a.email || a.name || '').trim();
+        if (key) pushEmployeeNotification(key, `New Todo: ${record.title}`, { taskId: record.id });
+      });
+    } catch {}
     return record;
   },
   update: async (id, patch) => {
     const items = get().items;
+    const before = items.find(i => i.id === id);
     const next = items.map(i => i.id === id ? { ...i, ...patch, updatedAt: new Date().toISOString() } : i);
     await save(next);
     set({ items: next });
+    // Notify assigned employees about updates
+    try {
+      const updated = next.find(i => i.id === id)!;
+      (updated.assignees || []).forEach(a => {
+        const key = String(a.email || a.name || '').trim();
+        if (key) pushEmployeeNotification(key, `Todo Updated: ${updated.title}`, { taskId: id });
+      });
+    } catch {}
+    // If status moved to completed or acknowledged, notify admins
+    try {
+      const after = next.find(i => i.id === id)!;
+      const actor = getCurrentUser();
+      if (before && after && before.status !== after.status) {
+        if (after.status === 'completed') {
+          pushAdminAlert('todo_completed' as any, `Todo Completed: ${after.title}`, String(actor?.email || actor?.name || 'employee'), { taskId: id });
+        }
+        if (after.status === 'acknowledged') {
+          pushAdminAlert('todo_acknowledged' as any, `Todo Acknowledged: ${after.title}`, String(actor?.email || actor?.name || 'employee'), { taskId: id });
+        }
+      }
+    } catch {}
   },
   remove: async (id) => {
     const items = get().items;
@@ -184,6 +234,41 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const items = get().items.filter(i => !ids.includes(i.id));
     await save(items);
     set({ items, selectedIds: [] });
+  },
+  markRead: async (id, userKey) => {
+    const items = get().items;
+    const key = String(userKey || getCurrentUser()?.email || getCurrentUser()?.name || '').trim();
+    const next = items.map(i => {
+      if (i.id !== id) return i;
+      const receipts = Array.isArray(i.readReceipts) ? [...i.readReceipts] : [];
+      if (key && !receipts.find(r => r.user === key)) receipts.push({ user: key, viewedAt: new Date().toISOString() });
+      return { ...i, readReceipts: receipts, updatedAt: new Date().toISOString() };
+    });
+    await save(next);
+    set({ items: next });
+  },
+  addComment: async (id, comment) => {
+    const items = get().items;
+    const curUser = getCurrentUser();
+    const next = items.map(i => {
+      if (i.id !== id) return i;
+      const list = Array.isArray(i.comments) ? [...i.comments] : [];
+      const c: TaskComment = { id: `c_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, text: comment.text, authorEmail: comment.authorEmail || curUser?.email, authorName: comment.authorName || curUser?.name, createdAt: new Date().toISOString() };
+      list.push(c);
+      return { ...i, comments: list, updatedAt: new Date().toISOString() };
+    });
+    await save(next);
+    set({ items: next });
+    // Notify admins of comment
+    try {
+      const task = next.find(i => i.id === id)!;
+      pushAdminAlert('todo_comment' as any, `Todo Comment: ${task.title}`, String(curUser?.email || curUser?.name || 'employee'), { taskId: id });
+      // Notify other assignees (excluding the commenter)
+      (task.assignees || []).forEach(a => {
+        const key = String(a.email || a.name || '').trim();
+        if (key && key !== String(curUser?.email || curUser?.name || '')) pushEmployeeNotification(key, `Comment on Todo: ${task.title}`, { taskId: id });
+      });
+    } catch {}
   }
 }));
 

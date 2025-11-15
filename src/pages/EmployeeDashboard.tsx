@@ -26,11 +26,13 @@ import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
 import { pushAdminAlert } from "@/lib/adminAlerts";
 import { getCurrentUser } from "@/lib/auth";
+import HelpModal from "@/components/help/HelpModal";
 
 const EmployeeDashboard = () => {
   const { toast } = useToast();
   const user = getCurrentUser();
   const [certifiedDate, setCertifiedDate] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [orientationOpen, setOrientationOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [tips, setTips] = useState<string[]>([
@@ -141,9 +143,12 @@ const EmployeeDashboard = () => {
         <div className="space-y-6 animate-fade-in">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-foreground">Employee Dashboard</h1>
-            {certifiedDate && (
-              <Badge className="bg-green-600">Certified Detailer — {certifiedDate}</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {certifiedDate && (
+                <Badge className="bg-green-600">Certified Detailer — {certifiedDate}</Badge>
+              )}
+              <Button variant="secondary" onClick={() => setHelpOpen(true)}>Help</Button>
+            </div>
           </div>
 
           {/* Big cards arranged in two rows (2 columns on md+) */}
@@ -311,6 +316,7 @@ const EmployeeDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} role={(user?.role === 'admin') ? 'admin' : 'employee'} />
     </div>
   );
 };

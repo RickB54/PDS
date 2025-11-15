@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentUser } from "@/lib/auth";
 import { useTasksStore, parseTaskInput, Task, TaskPriority, TaskStatus } from "@/store/tasks";
+import api from "@/lib/api";
 import { CalendarDays, CheckSquare, Trash2, Edit, Clock, User, Paperclip, ListChecks, Filter, GripVertical, Template } from "lucide-react";
 
 export default function Tasks() {
@@ -20,8 +21,26 @@ export default function Tasks() {
   const [quickAdd, setQuickAdd] = useState("");
   const [editing, setEditing] = useState<Task | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const isAdmin = user?.role === 'admin';
+  const isEmployee = user?.role === 'employee';
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await api('/api/users/employees', { method: 'GET' });
+        setEmployees(Array.isArray(list) ? list : []);
+      } catch { setEmployees([]); }
+    })();
+  }, []);
+  useEffect(() => {
+    // Mark read receipt when opening a task
+    const id = editing?.id;
+    if (id) {
+      try { useTasksStore.getState().markRead(id); } catch {}
+    }
+  }, [editing]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -33,8 +52,19 @@ export default function Tasks() {
         return blob.includes(q);
       })
       .filter(t => {
+        // Enforce employee-only visibility to assigned tasks
+        if (isEmployee) {
+          const me = [user?.email, user?.name].filter(Boolean).map(s => String(s).toLowerCase());
+          const assigned = Array.isArray((t as any).assignees) ? (t as any).assignees : (t.assigneeId ? [{ name: t.assigneeId }] : []);
+          const hasMe = assigned.some((a:any) => me.includes(String(a.email || a.name || '').toLowerCase()));
+          if (!hasMe) return false;
+        }
         switch (filter) {
-          case 'mine': return !!user && (t.assigneeId === user.name || t.assigneeId === user.email);
+          case 'mine': {
+            const me = [user?.email, user?.name].filter(Boolean).map(s => String(s).toLowerCase());
+            const assigned = Array.isArray((t as any).assignees) ? (t as any).assignees : (t.assigneeId ? [{ name: t.assigneeId }] : []);
+            return !!user && assigned.some((a:any) => me.includes(String(a.email || a.name || '').toLowerCase()));
+          }
           case 'overdue': {
             if (!t.dueDate || t.status === 'completed') return false;
             const due = new Date(t.dueDate + 'T' + (t.dueTime || '23:59') + ':00');
@@ -51,7 +81,7 @@ export default function Tasks() {
         }
       })
       .sort((a,b) => (a.order||0)-(b.order||0));
-  }, [items, filter, search, user]);
+  }, [items, filter, search, user, isEmployee]);
 
   const handleQuickAdd = async () => {
     const parsed = parseTaskInput(quickAdd);
@@ -84,6 +114,7 @@ export default function Tasks() {
     { key: 'in_progress', label: 'In Progress' },
     { key: 'waiting', label: 'Waiting' },
     { key: 'completed', label: 'Completed' },
+    { key: 'acknowledged', label: 'Acknowledged' },
   ];
 
   const TemplateButtons = () => (
@@ -104,7 +135,7 @@ export default function Tasks() {
             <div className="font-semibold">Categories</div>
           </div>
           <div className="space-y-2">
-            {(['all','mine','overdue','today','upcoming'] as const).map((f) => (
+            {(isAdmin ? (['all','mine','overdue','today','upcoming'] as const) : (['mine','overdue','today','upcoming'] as const)).map((f) => (
               <Button key={f} variant={filter===f? 'secondary':'ghost'} className="w-full justify-start" onClick={() => setFilter(f)}>
                 <Filter className="w-4 h-4 mr-2" />
                 {f === 'all' ? 'All' : f === 'mine' ? 'My Tasks' : f[0].toUpperCase()+f.slice(1)}
@@ -121,8 +152,12 @@ export default function Tasks() {
         <div className="space-y-3">
           <Card className="p-3 bg-[#0f0f13] border border-zinc-800 rounded-xl">
             <div className="flex items-center gap-2">
-              <Input placeholder="e.g., Follow up with John tomorrow at 3 PM" value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} className="flex-1" />
-              <Button onClick={handleQuickAdd}>Add</Button>
+              {isAdmin && (
+                <>
+                  <Input placeholder="e.g., Follow up with John tomorrow at 3 PM" value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} className="flex-1" />
+                  <Button onClick={handleQuickAdd}>Add</Button>
+                </>
+              )}
               <Select value={view} onValueChange={(v) => setView(v as any)}>
                 <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -150,9 +185,11 @@ export default function Tasks() {
                         {t.dueDate && (
                           <span className="inline-flex items-center gap-1 text-xs text-blue-300"><Clock className="w-3 h-3" />{t.dueDate}{t.dueTime?` ${t.dueTime}`:''}</span>
                         )}
-                        {t.assigneeId && (
+                        {(Array.isArray((t as any).assignees) && (t as any).assignees.length > 0) ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-300"><User className="w-3 h-3" />{(t as any).assignees.map((a:any)=>a.name||a.email).filter(Boolean).join(', ')}</span>
+                        ) : (t.assigneeId ? (
                           <span className="inline-flex items-center gap-1 text-xs text-green-300"><User className="w-3 h-3" />{t.assigneeId}</span>
-                        )}
+                        ) : null)}
                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${priorities.find(p=>p.key===t.priority)?.color || ''}`}>{t.priority}</span>
                       </div>
                     </div>
@@ -228,7 +265,7 @@ export default function Tasks() {
                 <Input type="time" value={editing.dueTime||''} onChange={(e)=>setEditing({ ...editing, dueTime: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Select value={editing.priority} onValueChange={(v)=>setEditing({ ...editing, priority: v as TaskPriority })}>
+                <Select value={editing.priority} onValueChange={(v)=>setEditing({ ...editing, priority: v as TaskPriority })} disabled={!isAdmin}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {priorities.map(p => (<SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>))}
@@ -241,10 +278,34 @@ export default function Tasks() {
                   </SelectContent>
                 </Select>
               </div>
-              <Input value={editing.assigneeId||''} onChange={(e)=>setEditing({ ...editing, assigneeId: e.target.value })} placeholder="Assign to (name/email)" />
-              <Input value={editing.customerId||''} onChange={(e)=>setEditing({ ...editing, customerId: e.target.value })} placeholder="Link customer (id/name)" />
-              <Input value={editing.vehicleId||''} onChange={(e)=>setEditing({ ...editing, vehicleId: e.target.value })} placeholder="Link vehicle (id)" />
-              <Input value={editing.workOrderId||''} onChange={(e)=>setEditing({ ...editing, workOrderId: e.target.value })} placeholder="Link work order (id)" />
+              {isAdmin && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Assign to employees</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {employees.map((e:any) => {
+                    const key = String(e.email || e.name || e.id || '').trim();
+                    const selected = Array.isArray((editing as any).assignees) ? (editing as any).assignees : (editing?.assigneeId ? [{ name: editing?.assigneeId }] : []);
+                    const isChecked = selected.some((a:any) => String(a.email || a.name || '') === key);
+                    return (
+                      <label key={key} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={isChecked} onChange={(ev)=>{
+                          const list = Array.isArray((editing as any).assignees) ? (editing as any).assignees.slice() : [];
+                          if (ev.target.checked) list.push({ email: e.email, name: e.name }); else {
+                            const idx = list.findIndex((a:any) => String(a.email || a.name || '') === key);
+                            if (idx >= 0) list.splice(idx,1);
+                          }
+                          setEditing({ ...editing!, assignees: list });
+                        }} />
+                        <span>{e.name || e.email}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              )}
+              <Input value={editing.customerId||''} onChange={(e)=>setEditing({ ...editing, customerId: e.target.value })} placeholder="Link customer (id/name)" disabled={!isAdmin} />
+              <Input value={editing.vehicleId||''} onChange={(e)=>setEditing({ ...editing, vehicleId: e.target.value })} placeholder="Link vehicle (id)" disabled={!isAdmin} />
+              <Input value={editing.workOrderId||''} onChange={(e)=>setEditing({ ...editing, workOrderId: e.target.value })} placeholder="Link work order (id)" disabled={!isAdmin} />
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Checklist</div>
                 <div className="space-y-1">
@@ -278,8 +339,41 @@ export default function Tasks() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={async ()=>{ await update(editing.id, editing); toast({ title: 'Saved', description: 'Task updated.' }); }}>Save</Button>
+                <Button onClick={async ()=>{
+                  const payload = isAdmin ? editing : ({ status: editing.status } as any);
+                  await update(editing.id, payload);
+                  toast({ title: 'Saved', description: 'Task updated.' });
+                }}>Save</Button>
                 <Button variant="ghost" onClick={()=>setEditing(null)}>Close</Button>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Comments</div>
+                <div className="space-y-2">
+                  {(editing.comments || []).map((c) => (
+                    <div key={c.id} className="border border-zinc-800 rounded p-2">
+                      <div className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()} • {c.authorName || c.authorEmail || 'User'}</div>
+                      <div className="text-sm">{c.text}</div>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input placeholder="Add a comment" value={(editing as any)._newComment || ''} onChange={(e)=>setEditing({ ...editing!, _newComment: e.target.value } as any)} />
+                    <Button variant="secondary" onClick={async ()=>{
+                      const text = String((editing as any)._newComment || '').trim();
+                      if (!text) return;
+                      await useTasksStore.getState().addComment(editing!.id, { text });
+                      toast({ title: 'Comment added' });
+                      // Refresh local editing state
+                      const fresh = useTasksStore.getState().items.find(i => i.id === editing!.id);
+                      if (fresh) setEditing({ ...fresh, _newComment: '' } as any);
+                    }}>Post</Button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Read Receipts</div>
+                <div className="text-xs text-muted-foreground">
+                  {(editing.readReceipts || []).length === 0 ? 'No reads yet.' : (editing.readReceipts || []).map(r => `${r.user} @ ${new Date(r.viewedAt).toLocaleString()}`).join(' • ')}
+                </div>
               </div>
             </div>
           ) : (
@@ -297,4 +391,3 @@ export default function Tasks() {
     </div>
   );
 }
-

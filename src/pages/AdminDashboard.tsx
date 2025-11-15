@@ -42,6 +42,8 @@ import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { CheatSheetPanel } from "@/pages/CheatSheet";
 import localforage from "localforage";
+import HelpModal from "@/components/help/HelpModal";
+import { getCurrentUser } from "@/lib/auth";
 import { useAlertsStore } from "@/store/alerts";
 import { useBookingsStore } from "@/store/bookings";
 import { isViewed } from "@/lib/viewTracker";
@@ -174,6 +176,8 @@ export default function AdminDashboard() {
   const [newAboutContent, setNewAboutContent] = useState('');
   // Cheat Sheet modal
   const [cheatOpen, setCheatOpen] = useState(false);
+  const user = getCurrentUser();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Removed auto-open for Website Administration to decouple from Admin Dashboard
 
@@ -535,6 +539,9 @@ export default function AdminDashboard() {
     <div>
       <PageHeader title="Admin Dashboard" />
       <div className="p-4 space-y-6 max-w-screen-xl mx-auto overflow-x-hidden">
+        <div className="flex justify-end">
+          <Button variant="secondary" onClick={() => setHelpOpen(true)}>Help</Button>
+        </div>
         {/* Removed top-right Website Administration button; now a dashboard box below */}
         {/* Real-time Alerts banner with deep purple background */}
         <Card className="p-4 border-purple-500/60 border bg-purple-900">
@@ -1434,6 +1441,7 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
       </div>
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} role={(user?.role === 'admin') ? 'admin' : 'employee'} />
     </div>
   );
 }
