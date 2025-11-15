@@ -596,23 +596,26 @@ export default function AdminDashboard() {
               <Shield className="w-6 h-6 text-blue-500" />
               <div className="text-lg font-bold">Admin Control</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-1.5">
-              {/* System Admin — compact pill links */}
-              <Link to="/website-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600 text-blue-600 hover:bg-blue-600/10">
-                <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span>Website Administration</span>
-              </Link>
-              <Link to="/user-management" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-pink-600 text-pink-600 hover:bg-pink-600/10">
-                <Users className="w-3.5 h-3.5 text-pink-600" />
-                <span>User Management</span>
-              </Link>
-              {!isMenuHidden('settings') && (
-                <Link to="/settings" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-cyan-600 text-cyan-600 hover:bg-cyan-600/10">
-                  <Cog className="w-3.5 h-3.5 text-cyan-600" />
-                  <span>Company Settings</span>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-1.5">
+                {/* System Admin — compact pill links */}
+                <Link to="/website-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600 text-blue-600 hover:bg-blue-600/10">
+                  <Shield className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Website Administration</span>
                 </Link>
-              )}
-            </div>
+                <Link to="/user-management" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-pink-600 text-pink-600 hover:bg-pink-600/10">
+                  <Users className="w-3.5 h-3.5 text-pink-600" />
+                  <span>User Management</span>
+                </Link>
+                {!isMenuHidden('settings') && (
+                  <Link to="/settings" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-cyan-600 text-cyan-600 hover:bg-cyan-600/10">
+                    <Cog className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>Company Settings</span>
+                  </Link>
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Job Operations */}
@@ -621,17 +624,20 @@ export default function AdminDashboard() {
               <ClipboardCheck className="w-6 h-6 text-orange-500" />
               <div className="text-lg font-bold">Job Operations</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('start-job') && (
-                <RedBox accent="orange" title="Start a Job" subtitle="Open Service Checklist" href="/service-checklist" Icon={ClipboardCheck} />
-              )}
-              {!isMenuHidden('jobs-completed-admin') && (
-                <RedBox accent="orange" title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
-              )}
-              {!isMenuHidden('bookings') && (
-                <RedBox accent="orange" title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('start-job') && (
+                  <RedBox accent="orange" title="Start a Job" subtitle="Open Service Checklist" href="/service-checklist" Icon={ClipboardCheck} />
+                )}
+                {!isMenuHidden('jobs-completed-admin') && (
+                  <RedBox accent="orange" title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
+                )}
+                {!isMenuHidden('bookings') && (
+                  <RedBox accent="orange" title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Customer Hub */}
@@ -640,14 +646,17 @@ export default function AdminDashboard() {
               <Users className="w-6 h-6 text-purple-500" />
               <div className="text-lg font-bold">Customer Hub</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('search-customer') && (
-                <RedBox accent="purple" title="Add Customer" subtitle="Open popup to add" onClick={() => setAddCustomerOpen(true)} Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
-              )}
-              {!isMenuHidden('customer-profiles') && (
-                <RedBox accent="purple" title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('search-customer') && (
+                  <RedBox accent="purple" title="Add Customer" subtitle="Open popup to add" onClick={() => setAddCustomerOpen(true)} Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
+                )}
+                {!isMenuHidden('customer-profiles') && (
+                  <RedBox accent="purple" title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Finance Center */}
@@ -656,23 +665,26 @@ export default function AdminDashboard() {
               <DollarSign className="w-6 h-6 text-green-600" />
               <div className="text-lg font-bold">Finance Center</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('invoicing') && (
-                <RedBox accent="green" title="Create Invoice" subtitle={`${unpaidInvoices} unpaid`} href="/invoicing" Icon={FileText} badgeCount={Math.max(unpaidInvoices, badgeByType('invoice_unpaid'))} />
-              )}
-              {!isMenuHidden('payroll') && (
-                <RedBox accent="green" title="Payroll Due" subtitle={`${overdueCount} employees due payment this week — $${totalDue.toFixed(2)} total`} href="/payroll" Icon={DollarSign} badgeCount={Math.max(badgeByType('payroll_due'), overdueCount)} />
-              )}
-              {!isMenuHidden('pay-employee') && (
-                <RedBox accent="green" title="Pay Employee" subtitle="Open checks/cash/direct deposit" href="/payroll?modal=checks" Icon={DollarSign} />
-              )}
-              {!isMenuHidden('accounting') && (
-                <RedBox accent="green" title="Accounting" subtitle="View P&L" href="/accounting" Icon={Calculator} badgeCount={badgeByType('accounting_update')} />
-              )}
-              {!isMenuHidden('discount-coupons') && (
-                <RedBox accent="green" title="Discount Coupons" subtitle="Create and manage offers" href="/discount-coupons" Icon={Tag} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('invoicing') && (
+                  <RedBox accent="green" title="Create Invoice" subtitle={`${unpaidInvoices} unpaid`} href="/invoicing" Icon={FileText} badgeCount={Math.max(unpaidInvoices, badgeByType('invoice_unpaid'))} />
+                )}
+                {!isMenuHidden('payroll') && (
+                  <RedBox accent="green" title="Payroll Due" subtitle={`${overdueCount} employees due payment this week — $${totalDue.toFixed(2)} total`} href="/payroll" Icon={DollarSign} badgeCount={Math.max(badgeByType('payroll_due'), overdueCount)} />
+                )}
+                {!isMenuHidden('pay-employee') && (
+                  <RedBox accent="green" title="Pay Employee" subtitle="Open checks/cash/direct deposit" href="/payroll?modal=checks" Icon={DollarSign} />
+                )}
+                {!isMenuHidden('accounting') && (
+                  <RedBox accent="green" title="Accounting" subtitle="View P&L" href="/accounting" Icon={Calculator} badgeCount={badgeByType('accounting_update')} />
+                )}
+                {!isMenuHidden('discount-coupons') && (
+                  <RedBox accent="green" title="Discount Coupons" subtitle="Create and manage offers" href="/discount-coupons" Icon={Tag} />
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Inventory & Files */}
@@ -681,17 +693,20 @@ export default function AdminDashboard() {
               <Folder className="w-6 h-6 text-yellow-500" />
               <div className="text-lg font-bold">Inventory & Files</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('inventory-control') && (
-                <RedBox accent="yellow" title="Low Inventory" subtitle={`${criticalInventory} items critical`} href="/inventory-control" Icon={Package} badgeCount={criticalInventory} />
-              )}
-              {!isMenuHidden('inventory-control') && (
-                <RedBox accent="yellow" title="Material Updates" subtitle="Record usage and notes" href="/inventory-control?updates=true" Icon={FileText} />
-              )}
-              {!isMenuHidden('file-manager') && (
-                <RedBox accent="yellow" title="File Manager" subtitle={`Unviewed: ${unviewedFilesCount}`} href="/file-manager" Icon={Folder} badgeCount={unviewedFilesCount} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('inventory-control') && (
+                  <RedBox accent="yellow" title="Low Inventory" subtitle={`${criticalInventory} items critical`} href="/inventory-control" Icon={Package} badgeCount={criticalInventory} />
+                )}
+                {!isMenuHidden('inventory-control') && (
+                  <RedBox accent="yellow" title="Material Updates" subtitle="Record usage and notes" href="/inventory-control?updates=true" Icon={FileText} />
+                )}
+                {!isMenuHidden('file-manager') && (
+                  <RedBox accent="yellow" title="File Manager" subtitle={`Unviewed: ${unviewedFilesCount}`} href="/file-manager" Icon={Folder} badgeCount={unviewedFilesCount} />
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Add Customer Popup */}
@@ -717,14 +732,17 @@ export default function AdminDashboard() {
               <CheckSquare className="w-6 h-6 text-zinc-400" />
               <div className="text-lg font-bold">Tasks & Portal</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('employee-dashboard') && (
-                <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
-              )}
-              {!isMenuHidden('service-checklist') && (
-                <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/checklist" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('employee-dashboard') && (
+                  <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
+                )}
+                {!isMenuHidden('service-checklist') && (
+                  <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/checklist" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
+                )}
+              </div>
+            </Card>
           </Card>
 
           {/* Pricing */}
@@ -733,11 +751,14 @@ export default function AdminDashboard() {
               <Tag className="w-6 h-6 text-pink-500" />
               <div className="text-lg font-bold">Pricing</div>
             </div>
-            <div className="flex flex-row flex-wrap gap-2">
-              {!isMenuHidden('package-pricing') && (
-                <RedBox accent="pink" title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
-              )}
-            </div>
+            {/* Inner dark box to match Training Hub */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('package-pricing') && (
+                  <RedBox accent="pink" title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
+                )}
+              </div>
+            </Card>
           </Card>
         </div>
 
