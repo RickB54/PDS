@@ -31,6 +31,14 @@ export function isViewed(category: ViewCategory, id: string): boolean {
   return getViewedSet(category).has(String(id));
 }
 
+export function unmarkViewed(category: ViewCategory, id: string) {
+  const set = getViewedSet(category);
+  set.delete(String(id));
+  localStorage.setItem(getKey(category), JSON.stringify(Array.from(set)));
+  // Emit event for cross-component updates
+  window.dispatchEvent(new Event("storage"));
+}
+
 export function clearViewed(category: ViewCategory) {
   localStorage.removeItem(getKey(category));
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { useAlertsStore } from "@/store/alerts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -9,8 +10,16 @@ export default function NotificationBell() {
   const { alerts, latest, unreadCount, markAllRead, markRead, dismissAll, refresh } = useAlertsStore();
   const [ring, setRing] = useState(false);
   const prevUnreadRef = useRef(unreadCount);
+  const location = useLocation();
+  const isFileManagerView = location.pathname.startsWith('/file-manager');
 
   useEffect(() => {
+    if (isFileManagerView) {
+      // Suppress ring when viewing File Manager
+      setRing(false);
+      prevUnreadRef.current = unreadCount;
+      return;
+    }
     if (unreadCount > prevUnreadRef.current) {
       setRing(true);
       // Tiny sound via WebAudio
@@ -26,7 +35,7 @@ export default function NotificationBell() {
       setTimeout(() => setRing(false), 600);
     }
     prevUnreadRef.current = unreadCount;
-  }, [unreadCount]);
+  }, [unreadCount, isFileManagerView]);
 
   // Keep dropdown in sync when alerts change in localStorage across tabs/actions
   useEffect(() => {
@@ -47,11 +56,13 @@ export default function NotificationBell() {
 
   const items = useMemo(() => [...latest].reverse().slice(0, 10), [latest]);
   // Compute important unread using full AdminAlert objects, not mapped UI items
-  const importantUnread = useMemo(
+  const importantUnreadActual = useMemo(
     () => alerts.filter(a => !a.read && (a.type === 'exam_reminder' || a.type === 'admin_message')).length,
     [alerts]
   );
-  const bellColorClass = importantUnread > 0 ? "text-yellow-400" : (unreadCount > 0 ? "text-white" : "text-red-500");
+  const importantUnread = isFileManagerView ? 0 : importantUnreadActual;
+  const displayUnreadCount = isFileManagerView ? 0 : unreadCount;
+  const bellColorClass = importantUnread > 0 ? "text-yellow-400" : (displayUnreadCount > 0 ? "text-white" : "text-red-500");
 
   return (
     <DropdownMenu>
@@ -62,7 +73,7 @@ export default function NotificationBell() {
           {importantUnread > 0 ? (
             <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-black">{importantUnread}</Badge>
           ) : (
-            <Badge className="absolute -top-1 -right-1 bg-zinc-700 text-white">{unreadCount}</Badge>
+            <Badge className="absolute -top-1 -right-1 bg-zinc-700 text-white">{displayUnreadCount}</Badge>
           )}
         </Button>
       </DropdownMenuTrigger>

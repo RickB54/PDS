@@ -81,12 +81,11 @@ export function AppSidebar() {
     const isRequested = !!requestFlags[b.id];
     return isToday && (isPending || isRequested) && !isViewed("booking", b.id);
   }).length;
-  // Red badge: number of unviewed PDFs (any type). Drops when you click the bell.
+  // Red badge: number of unviewed PDFs (any type), reflects yellow bells in File Manager.
   const fileCount = (() => {
     try {
       const list = JSON.parse(localStorage.getItem('pdfArchive') || '[]');
-      const today = new Date().toLocaleDateString().replace(/\//g, '-');
-      return list.filter((r: any) => String(r.date).includes(today) && !isViewed('file', String(r.id || r.fileName || r.timestamp || ''))).length;
+      return list.filter((r: any) => !isViewed('file', String(r.id || r.fileName || r.timestamp || ''))).length;
     } catch { return 0; }
   })();
   const inventoryCount = (() => {
@@ -368,16 +367,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {!isHidden('jobs-completed') && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild onClick={handleNavClick}>
-                    <NavLink to="/jobs-completed" className={linkClass}>
-                      <Search className="h-4 w-4" />
-                      <span>Jobs Completed</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+              {/* Jobs Completed removed from slide-out menu per request (still available on Admin Dashboard) */}
 
               {!isHidden('reports') && (
                 <SidebarMenuItem>

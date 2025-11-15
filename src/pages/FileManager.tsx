@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCurrentUser } from "@/lib/auth";
 import { FileText, Download, Search, Filter, Trash2, Eye, BellOff, Bell, Printer } from "lucide-react";
-import { markViewed, isViewed } from "@/lib/viewTracker";
+import { markViewed, isViewed, unmarkViewed } from "@/lib/viewTracker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -377,19 +377,24 @@ interface PDFRecord {
                           }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => downloadPDF(record)}>
+                          <Button size="icon" variant="ghost" onClick={() => { markViewed("file", record.id); downloadPDF(record); }}>
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => openPrintPreview(record)} title="Print">
+                          <Button size="icon" variant="ghost" onClick={() => { markViewed("file", record.id); openPrintPreview(record); }} title="Print">
                             <Printer className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button 
                             size="icon"
                             variant="ghost"
                             onClick={() => {
                               try {
-                                // Mark this file as viewed so sidebar/admin badges drop
-                                markViewed("file", record.id);
+                                // Toggle viewed/unviewed state for badge tracking
+                                const viewed = isViewed("file", record.id);
+                                if (viewed) {
+                                  unmarkViewed("file", record.id);
+                                } else {
+                                  markViewed("file", record.id);
+                                }
                                 const hasAlerts = recordHasAlerts(record);
                                 if (hasAlerts) {
                                   // Dismiss any alerts tied to this record
@@ -412,12 +417,12 @@ interface PDFRecord {
                                 setRecords(prev => [...prev]);
                               } catch {}
                             }}
-                            title="Toggle alerts for this record"
+                            title="Toggle alert flag for this file"
                           >
                             {recordHasAlerts(record) ? (
                               <Bell className="h-4 w-4 text-yellow-400" />
                             ) : (
-                              <BellOff className="h-4 w-4" />
+                              <Bell className="h-4 w-4 text-white" />
                             )}
                           </Button>
                           <Button size="icon" variant="ghost" onClick={() => setDeleteId(record.id)}>

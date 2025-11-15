@@ -8,6 +8,19 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import OrientationModal from "@/components/training/OrientationModal";
 import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
@@ -19,6 +32,20 @@ const EmployeeDashboard = () => {
   const user = getCurrentUser();
   const [certifiedDate, setCertifiedDate] = useState<string | null>(null);
   const [orientationOpen, setOrientationOpen] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  const [tips, setTips] = useState<string[]>([
+    "Always pre-rinse heavily soiled areas to prevent marring.",
+    "Use dedicated wheel buckets to avoid cross-contamination.",
+    "Work small sections; check results under proper lighting.",
+    "Prime pads correctly; clean pads frequently for consistent cut.",
+    "Decontam thoroughly before correction; coating requires perfect prep.",
+    "Customer handoff: demonstrate care guide to reduce comebacks.",
+  ]);
+  const [tipsChecked, setTipsChecked] = useState<boolean[]>([]);
+  const [newTip, setNewTip] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   // Notify Admin form state
   const [subject, setSubject] = useState("");
@@ -31,7 +58,28 @@ const EmployeeDashboard = () => {
     if (cert) setCertifiedDate(cert);
     // Remove any legacy task data from persistent storage
     try { localStorage.removeItem("employee_tasks"); } catch {}
+    // Load persisted pro tips and acknowledgements
+    try {
+      const saved = JSON.parse(localStorage.getItem("pro_tips") || "[]");
+      const savedAck = JSON.parse(localStorage.getItem("pro_tips_ack") || "[]");
+      if (Array.isArray(saved) && saved.length > 0) {
+        setTips(saved.map(String));
+        setTipsChecked(Array(saved.length).fill(false).map((_, i) => Boolean(savedAck[i])));
+      } else {
+        setTipsChecked(Array(tips.length).fill(false));
+      }
+    } catch {
+      setTipsChecked(Array(tips.length).fill(false));
+    }
   }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("pro_tips", JSON.stringify(tips)); } catch {}
+  }, [tips]);
+
+  useEffect(() => {
+    try { localStorage.setItem("pro_tips_ack", JSON.stringify(tipsChecked)); } catch {}
+  }, [tipsChecked]);
 
   const handleNotifyAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +171,14 @@ const EmployeeDashboard = () => {
                 <div className="text-sm opacity-90">To view our current package pricelist, add-ons and other website tools.</div>
               </Card>
             </Link>
+
+            {/* Rick's Pro Tips (purple) */}
+            <button type="button" onClick={() => setTipsOpen(true)} className="block text-left">
+              <Card className="p-6 bg-purple-700 text-white rounded-xl">
+                <div className="text-2xl font-bold">RICK’S PRO TIPS</div>
+                <div className="text-sm opacity-90">Quick professional reminders to reduce rework.</div>
+              </Card>
+            </button>
           </div>
 
           {/* Quick actions */}
@@ -171,6 +227,90 @@ const EmployeeDashboard = () => {
       </main>
       {/* Orientation Modal */}
       <OrientationModal open={orientationOpen} onOpenChange={setOrientationOpen} />
+
+      {/* Rick's Pro Tips Modal */}
+      <Dialog open={tipsOpen} onOpenChange={setTipsOpen}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle className="text-purple-600">Rick’s Pro Tips</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input placeholder="Add a new tip..." value={newTip} onChange={(e) => setNewTip(e.target.value)} />
+              <Button className="bg-purple-700 hover:bg-purple-800" onClick={() => {
+                const t = newTip.trim();
+                if (!t) return;
+                setTips(prev => [...prev, t]);
+                setTipsChecked(prev => [...prev, false]);
+                setNewTip("");
+              }}>Add</Button>
+            </div>
+            <div className="space-y-3">
+              {tips.map((tip, i) => (
+                <div key={i} className="flex items-start gap-3 p-2 rounded bg-muted/30">
+                  <Checkbox
+                    checked={Boolean(tipsChecked[i])}
+                    onCheckedChange={(v) => {
+                      const next = [...tipsChecked];
+                      next[i] = Boolean(v);
+                      setTipsChecked(next);
+                    }}
+                  />
+                  <div className="flex-1">
+                    {editingIndex === i ? (
+                      <div className="flex items-center gap-2">
+                        <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+                        <Button className="bg-purple-700 hover:bg-purple-800" onClick={() => {
+                          const t = editValue.trim();
+                          if (!t) { setEditingIndex(null); setEditValue(""); return; }
+                          setTips(prev => prev.map((v, idx) => idx === i ? t : v));
+                          setEditingIndex(null);
+                          setEditValue("");
+                        }}>Save</Button>
+                        <Button variant="outline" onClick={() => { setEditingIndex(null); setEditValue(""); }}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-foreground font-medium">{tip}</div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="icon" title="Edit" onClick={() => { setEditingIndex(i); setEditValue(tip); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="icon" title="Delete" onClick={() => setDeleteIndex(i)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground">Mark when acknowledged.</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Tip Confirmation */}
+      <AlertDialog open={deleteIndex !== null} onOpenChange={(open) => { if (!open) setDeleteIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this tip?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The selected tip will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive" onClick={() => {
+              if (deleteIndex === null) return;
+              setTips(prev => prev.filter((_, idx) => idx !== deleteIndex));
+              setTipsChecked(prev => prev.filter((_, idx) => idx !== deleteIndex));
+              setDeleteIndex(null);
+              toast({ title: 'Deleted', description: 'Tip removed.' });
+            }}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

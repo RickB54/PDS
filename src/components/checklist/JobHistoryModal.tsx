@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMemo } from "react";
+import { useCallback } from "react";
 
 type ChecklistTask = { id: string; name: string; category: 'preparation'|'exterior'|'interior'|'final'; checked: boolean };
 
@@ -43,6 +44,15 @@ export default function JobHistoryModal({ open, onOpenChange, jobPdf, checklist,
     (checklist?.tasks || []).forEach(t => { (categories[t.category] ||= []).push(t); });
     return categories;
   }, [checklist]);
+
+  const handlePayEmployee = useCallback(() => {
+    try {
+      const employee = (checklist?.employeeId || '').trim();
+      const jobId = String(checklist?.id || jobPdf?.recordId || '');
+      const url = `/payroll?employee=${encodeURIComponent(employee || '')}&jobId=${encodeURIComponent(jobId)}&modal=1`;
+      window.open(url, 'pay_employee', 'width=720,height=640');
+    } catch {}
+  }, [checklist, jobPdf]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,6 +139,9 @@ export default function JobHistoryModal({ open, onOpenChange, jobPdf, checklist,
                 <Button asChild variant="secondary">
                   <a href={adminUpdatesPdf.pdfData} download={adminUpdatesPdf.fileName}>Admin Updates PDF</a>
                 </Button>
+              )}
+              {checklist?.employeeId && (
+                <Button className="bg-red-700 hover:bg-red-800" onClick={handlePayEmployee}>Pay Employee</Button>
               )}
             </div>
           </div>

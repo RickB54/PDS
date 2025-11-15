@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
-import { pushAdminAlert } from "@/lib/adminAlerts";
+import { upsertExpense } from "@/lib/db";
+import { pushAdminAlert, dismissAlertsForRecord } from "@/lib/adminAlerts";
 import { getCurrentUser } from "@/lib/auth";
 import localforage from "localforage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +27,7 @@ const defaultRows: Row[] = [
 ];
 
 const Payroll = () => {
+  const [params] = useSearchParams();
   const { toast } = useToast();
   const user = getCurrentUser();
   const [periodStart, setPeriodStart] = useState<string>(new Date().toISOString().slice(0,10));
@@ -65,6 +68,33 @@ const Payroll = () => {
   };
   load();
 }, []);
+
+  // If opened as a clean modal with query params, pre-populate a single row
+  useEffect(() => {
+    const modal = params.get('modal');
+    if (modal !== '1') return;
+    const emp = params.get('employee') || '';
+    const jobId = params.get('jobId') || '';
+    // Try to find the job by jobId, otherwise present a blank job row
+    try {
+      const job = completedJobs.find((j:any) => String(j.jobId) === String(jobId));
+      if (job) {
+        const newRow: JobRow = {
+          kind: 'job',
+          amount: Number(job.totalRevenue || 0),
+          description: `${job.service || 'Job'} - ${job.vehicle || ''} - ${job.customer || ''}`,
+          date: String(job.finishedAt || new Date().toISOString().slice(0,10)),
+          employee: emp || job.employee || '',
+          jobId: job.jobId,
+        };
+        setRows([newRow]);
+      } else {
+        setRows([{ kind: 'job', amount: 0, description: '', date: new Date().toISOString().slice(0,10), employee: emp || '' }]);
+      }
+    } catch {
+      setRows([{ kind: 'job', amount: 0, description: '', date: new Date().toISOString().slice(0,10), employee: emp || '' }]);
+    }
+  }, [params, completedJobs]);
 
   // Overdue employee toasts (7+ days since lastPaid)
   const [overdueToastShown, setOverdueToastShown] = useState(false);
@@ -267,6 +297,15 @@ const addJobRowFromCompleted = (job: any) => {
         entry = { type: 'custom', amount: cr.amount || 0, description: label, date: periodEnd, status: 'Pending', employee: '' };
       }
       await api('/api/payroll/history', { method: 'POST', body: JSON.stringify(entry) });
+      // Raise a payroll due alert tied to this employee for badge visibility
+      try {
+        const empName = String(entry.employee || '').trim();
+        if (empName) {
+          pushAdminAlert('payroll_due', `Payroll pending — ${empName} $${Number(entry.amount||0).toFixed(2)}`,'system', { recordType: 'Payroll', recordId: empName });
+        } else {
+          pushAdminAlert('payroll_due', `Payroll pending entry saved`, 'system', { recordType: 'Payroll' });
+        }
+      } catch {}
       // Mark matching completed job as paid if applicable
       if (row.kind === 'job' && (row as JobRow).jobId) {
         try {
@@ -348,6 +387,161 @@ const addJobRowFromCompleted = (job: any) => {
     await loadHistory();
     toast({ title: 'Deleted', description: 'Entry removed and totals updated.' });
   };
+
+  const isCleanModal = params.get('modal') === '1';
+  if (isCleanModal) {
+    const employeeParam = params.get('employee') || '';
+    const jobIdParam = params.get('jobId') || '';
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-4 max-w-xl">
+          <Card className="p-6 bg-gradient-card border-border">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Pay Employee</h2>
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">Employee</div>
+              <Input readOnly className="border-red-600 text-white" value={employeeParam} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                <div className="space-y-2">
+                  <Label>Amount ($)</Label>
+                  <Input type="number" step="0.01" className="text-right border-red-600 text-white" value={(rows[0] as JobRow)?.amount || 0}
+                    onChange={(e) => setRows(r => { const c=[...r]; const cur=c[0] as JobRow; c[0] = { ...cur, amount: parseFloat(e.target.value) || 0 }; return c; })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input type="date" className="border-red-600 text-white" value={(rows[0] as JobRow)?.date}
+                    onChange={(e) => setRows(r => { const c=[...r]; const cur=c[0] as JobRow; c[0] = { ...cur, date: e.target.value }; return c; })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input placeholder="e.g. Job Pay" className="border-red-600 text-white" value={(rows[0] as JobRow)?.description || ''}
+                  onChange={(e) => setRows(r => { const c=[...r]; const cur=c[0] as JobRow; c[0] = { ...cur, description: e.target.value }; return c; })} />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button className="rounded-lg bg-red-700 hover:bg-red-800" onClick={async () => {
+                  await savePaymentRow(0);
+                  try {
+                    const jr = (rows[0] as JobRow);
+                    const emp = String(jr.employee || employeeParam || '').trim();
+                    const amt = String(jr.amount || 0);
+                    const date = String(jr.date || new Date().toISOString().slice(0,10));
+                    const memo = String(jr.description || 'Job Pay');
+                    const qs = new URLSearchParams({ modal: 'checks', employee: emp, amount: amt, date, memo }).toString();
+                    if (window.opener) { window.opener.location.href = `/payroll?${qs}`; }
+                    window.close();
+                  } catch {}
+                }}>Pay Now</Button>
+                <Button className="rounded-lg" variant="outline" onClick={() => { try { window.close(); } catch {} }}>Cancel</Button>
+              </div>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // Minimal Checks/Cash/Online payment modal view via query params
+  const isChecksModal = params.get('modal') === 'checks';
+  if (isChecksModal) {
+    const empParam = params.get('employee') || '';
+    const amtParam = params.get('amount') || '';
+    const dateParam = params.get('date') || new Date().toISOString().slice(0,10);
+    const memoParam = params.get('memo') || '';
+    // Prefill local state
+    useEffect(() => {
+      setCheckEmployee(empParam);
+      setCheckAmount(amtParam);
+      setCheckDate(dateParam);
+      setCheckMemo(memoParam || 'Payroll Payment');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const saveCheckModal = async () => {
+      try {
+        const amt = parseFloat(checkAmount || '0') || 0;
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.text('Payroll Payment', 20, 20);
+        doc.setFontSize(11);
+        doc.text(`Employee: ${checkEmployee || 'N/A'}`, 20, 32);
+        doc.text(`Date: ${checkDate}`, 20, 38);
+        doc.text(`Type: ${checkType}`, 20, 44);
+        doc.text(`Amount: $${amt.toFixed(2)}`, 20, 50);
+        if (checkMemo) { doc.text(`Memo: ${checkMemo}`, 20, 56); }
+        const pdf = doc.output('dataurlstring');
+        savePDFToArchive('Payroll', 'Company', `check-${checkNumber || Date.now()}`, pdf, { fileName: `Payroll_${checkType}_${checkEmployee || 'Employee'}.pdf`, path: `Payroll Checks/` });
+        // Log as paid
+        await api('/api/payroll/history', { method: 'POST', body: JSON.stringify({ date: checkDate, type: checkType, description: checkMemo || checkType, amount: amt, status: 'Paid', employee: checkEmployee }) });
+        // Record payroll payment in accounting as an expense
+        try {
+          await upsertExpense({
+            amount: amt,
+            description: (checkMemo && checkMemo.trim().length > 0) ? checkMemo.trim() : `Payroll: ${checkEmployee} (${checkType})`,
+            createdAt: new Date(checkDate).toISOString(),
+          });
+        } catch {}
+        // Update lastPaid
+        try {
+          const list = (await localforage.getItem<any[]>("company-employees")) || [];
+          const today = new Date().toISOString().slice(0,10);
+          const next = list.map((e:any) => e.name === checkEmployee ? { ...e, lastPaid: today } : e);
+          await localforage.setItem('company-employees', next);
+        } catch {}
+        // Clear any payroll_due alert tied to this employee
+        try { if (checkEmployee) { dismissAlertsForRecord('Payroll' as any, checkEmployee as any); } } catch {}
+        toast({ title: 'Paid', description: 'Payment recorded and archived.' });
+        window.location.href = '/payroll';
+      } catch {
+        toast({ title: 'Error', description: 'Could not save payment.', variant: 'destructive' });
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-4 max-w-xl">
+          <Card className="p-6 bg-gradient-card border-border">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Finalize Payment</h2>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Input className="border-red-600 text-white" value={checkEmployee} onChange={(e) => setCheckEmployee(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                <div className="space-y-2">
+                  <Label>Amount ($)</Label>
+                  <Input type="number" step="0.01" className="text-right border-red-600 text-white" value={checkAmount} onChange={(e) => setCheckAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input type="date" className="border-red-600 text-white" value={checkDate} onChange={(e) => setCheckDate(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Type</Label>
+                <Select value={checkType} onValueChange={(v:any) => setCheckType(v)}>
+                  <SelectTrigger className="h-8 w-full border-red-700 text-white bg-black">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Check">Check</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Direct Deposit">Direct Deposit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Memo</Label>
+                <Input className="border-red-600 text-white" value={checkMemo} onChange={(e) => setCheckMemo(e.target.value)} />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button className="rounded-lg bg-red-700 hover:bg-red-800" onClick={saveCheckModal}>Save Payment</Button>
+                <Button className="rounded-lg" variant="outline" onClick={() => { window.location.href = '/payroll'; }}>Cancel</Button>
+              </div>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -730,6 +924,14 @@ const addJobRowFromCompleted = (job: any) => {
                   try { pushAdminAlert('pdf_saved', 'Payroll check PDF saved', 'system', { recordType: 'Payroll Checks' }); } catch {}
                   // Log to history as paid
                   await api('/api/payroll/history', { method: 'POST', body: JSON.stringify({ date: checkDate, type: 'Check', description: checkMemo || checkType, amount: amt, status: 'Paid', employee: checkEmployee }) });
+                  // Record payroll payment in accounting as an expense
+                  try {
+                    await upsertExpense({
+                      amount: amt,
+                      description: (checkMemo && checkMemo.trim().length > 0) ? checkMemo.trim() : `Payroll: ${checkEmployee} (${checkType})`,
+                      createdAt: new Date(checkDate).toISOString(),
+                    });
+                  } catch {}
                   // Update Last Paid
                   try {
                     const list = (await localforage.getItem<any[]>('company-employees')) || [];

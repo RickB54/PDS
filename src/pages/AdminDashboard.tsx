@@ -37,7 +37,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, CalendarDays, UserPlus, FileText, Package, DollarSign, Calculator, Folder, Users, Grid3X3, CheckSquare, Tag, Settings as Cog, Shield } from "lucide-react";
+ import { AlertTriangle, CalendarDays, UserPlus, FileText, Package, DollarSign, Calculator, Folder, Users, Grid3X3, CheckSquare, Tag, Settings as Cog, Shield, ClipboardCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CheatSheetPanel } from "@/pages/CheatSheet";
 import localforage from "localforage";
@@ -55,6 +55,7 @@ type Job = { finishedAt: string; totalRevenue: number; status: string };
 // Persistent menu visibility settings
 const MENU_STORAGE_KEY = 'hiddenMenuItems';
 const MENU_REGISTRY: { key: string; label: string }[] = [
+  { key: 'start-job', label: 'Start a Job' },
   { key: 'bookings', label: 'Bookings' },
   { key: 'search-customer', label: 'Customer Profiles' },
   { key: 'invoicing', label: 'Invoicing' },
@@ -122,6 +123,7 @@ export default function AdminDashboard() {
   const [unpaidInvoices, setUnpaidInvoices] = useState<number>(0);
   const [criticalInventory, setCriticalInventory] = useState<number>(0);
   const [newFilesToday, setNewFilesToday] = useState<number>(0);
+  const [unviewedFilesCount, setUnviewedFilesCount] = useState<number>(0);
   const [adminJobsCount, setAdminJobsCount] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
   const [overdueCount, setOverdueCount] = useState<number>(0);
@@ -382,8 +384,10 @@ export default function AdminDashboard() {
     // File Manager new files today
     const records = JSON.parse(localStorage.getItem('pdfArchive') || '[]');
     const tStr = new Date().toLocaleDateString().replace(/\//g, '-');
-    const countFiles = records.filter((r: any) => String(r.date).includes(tStr) && !isViewed("file", String(r.id))).length;
-    setNewFilesToday(countFiles);
+    const countToday = records.filter((r: any) => String(r.date).includes(tStr) && !isViewed("file", String(r.id))).length;
+    setNewFilesToday(countToday);
+    const countAllUnviewed = records.filter((r: any) => !isViewed("file", String(r.id))).length;
+    setUnviewedFilesCount(countAllUnviewed);
 
     // Payroll Due: use endpoints for count and total; then push alerts/toast
     (async () => {
@@ -465,6 +469,7 @@ export default function AdminDashboard() {
     const records = JSON.parse(localStorage.getItem('pdfArchive') || '[]');
     const tStr = new Date().toLocaleDateString().replace(/\//g, '-');
     setNewFilesToday(records.filter((r: any) => String(r.date).includes(tStr) && !isViewed("file", String(r.id))).length);
+    setUnviewedFilesCount(records.filter((r: any) => !isViewed("file", String(r.id))).length);
     // Admin jobs badge: count Job PDFs linked to checklists with employeeId 'Admin'
     try {
       const jobPdfs = (records as any[]).filter(r => String(r.recordType) === 'Job');
@@ -542,6 +547,10 @@ export default function AdminDashboard() {
 
         {/* Quick-action boxes grid (3 columns at lg and above) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Start a Job — first slot, links to Service Checklist */}
+          {!isMenuHidden('start-job') && (
+            <RedBox title="Start a Job" subtitle="Open Service Checklist" href="/service-checklist" Icon={ClipboardCheck} />
+          )}
           {/* Admin Cheat Sheet & Exam Control — revert to 3 buttons */}
           <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-purple-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(109,40,217,0.35)]">
             <div className="flex items-start">
@@ -560,31 +569,42 @@ export default function AdminDashboard() {
               </Link>
             </div>
           </Card>
-          {/* Website Administration quick link box now navigates to a standalone page */}
-          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-blue-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(37,99,235,0.35)]">
+          {/* System Admin — combined Website Administration and User Management */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(63,63,70,0.35)]">
             <div className="flex items-start">
               <div className="flex-1">
-                <div className="text-lg font-semibold text-blue-700">Website Administration</div>
-                <div className="text-sm text-zinc-400">Manage vehicle types, FAQs, contact, and about</div>
+                <div className="text-lg font-semibold text-white">System Admin</div>
+                <div className="text-sm text-zinc-400">Website Administration and User Management</div>
               </div>
-              <Shield className="w-8 h-8 text-blue-600/80" />
             </div>
-            <Link to="/website-admin" className="block mt-3">
-              <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Open</Button>
-            </Link>
-          </Card>
-          {/* User Management (Employees only) quick action */}
-          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-red-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(220,38,38,0.35)]">
-            <div className="flex items-start">
-              <div className="flex-1">
-                <div className="text-lg font-semibold text-red-700">User Management</div>
-                <div className="text-sm text-zinc-400">Employee Rights — Port 6061</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              {/* Website Administration */}
+              <div className="rounded-lg p-3 border border-zinc-800">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-blue-700">Website Administration</div>
+                    <div className="text-xs text-zinc-400">Manage vehicle types, FAQs, contact, and about</div>
+                  </div>
+                  <Shield className="w-6 h-6 text-blue-600/80" />
+                </div>
+                <Link to="/website-admin" className="block mt-2">
+                  <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Open</Button>
+                </Link>
               </div>
-              <Users className="w-8 h-8 text-red-600/80" />
+              {/* User Management */}
+              <div className="rounded-lg p-3 border border-zinc-800">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-red-700">User Management</div>
+                    <div className="text-xs text-zinc-400">Employee Rights — Port 6061</div>
+                  </div>
+                  <Users className="w-6 h-6 text-red-600/80" />
+                </div>
+                <Link to="/user-management" className="block mt-2">
+                  <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open</Button>
+                </Link>
+              </div>
             </div>
-            <Link to="/user-management" className="block mt-3">
-              <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open</Button>
-            </Link>
           </Card>
           {!isMenuHidden('jobs-completed-admin') && (
             <RedBox title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
@@ -604,11 +624,14 @@ export default function AdminDashboard() {
           {!isMenuHidden('payroll') && (
             <RedBox title="Payroll Due" subtitle={`${overdueCount} employees due payment this week — $${totalDue.toFixed(2)} total`} href="/payroll" Icon={DollarSign} badgeCount={Math.max(badgeByType('payroll_due'), overdueCount)} />
           )}
+          {!isMenuHidden('pay-employee') && (
+            <RedBox title="Pay Employee" subtitle="Open checks/cash/direct deposit" href="/payroll?modal=checks" Icon={DollarSign} />
+          )}
           {!isMenuHidden('accounting') && (
             <RedBox title="Accounting" subtitle="View P&L" href="/accounting" Icon={Calculator} badgeCount={badgeByType('accounting_update')} />
           )}
           {!isMenuHidden('file-manager') && (
-            <RedBox title="File Manager" subtitle={`${newFilesToday} new file${newFilesToday === 1 ? '' : 's'}`} href="/file-manager" Icon={Folder} badgeCount={Math.max(newFilesToday, alertsAll.filter(a => a.type === 'pdf_saved' && !a.read).length)} />
+            <RedBox title="File Manager" subtitle={`Unviewed: ${unviewedFilesCount}`} href="/file-manager" Icon={Folder} badgeCount={unviewedFilesCount} />
           )}
           {!isMenuHidden('customer-profiles') && (
             <RedBox title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
