@@ -46,7 +46,9 @@ import JobsCompleted from "./pages/JobsCompleted";
 import ExamPage from "./pages/ExamPage";
 import ExamAdmin from "./pages/ExamAdmin";
 import CheatSheet from "./pages/CheatSheet";
+import Tasks from "./pages/Tasks";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { initTaskWorkflowListeners } from "./store/tasks";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +73,7 @@ const App = () => {
     const updateUser = () => setUser(getCurrentUser());
     window.addEventListener('auth-changed', updateUser as EventListener);
     window.addEventListener('storage', updateUser);
+    try { initTaskWorkflowListeners(); } catch {}
     return () => {
       window.removeEventListener('auth-changed', updateUser as EventListener);
       window.removeEventListener('storage', updateUser);
@@ -134,6 +137,11 @@ const App = () => {
                     <Route path="/service-checklist" element={
                       <ProtectedRoute allowedRoles={['employee', 'admin']}>
                         <ServiceChecklist />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/tasks" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <Tasks />
                       </ProtectedRoute>
                     } />
                     <Route path="/search-customer" element={

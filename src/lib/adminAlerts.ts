@@ -102,8 +102,10 @@ export function dismissAlertsForRecord(recordType: string, recordId: string): vo
     // Match either by recordId or bookingId to cover older entries
     const matchesRecordId = String(payload.recordId || '') === String(recordId);
     const matchesBookingId = String(payload.bookingId || '') === String(recordId);
+    // Also support matching by archive record id for per-file targeting
+    const matchesArchiveId = String(payload.id || '') === String(recordId);
     const matchesType = !recordType || String(payload.recordType || '') === String(recordType);
-    return !(matchesType && (matchesRecordId || matchesBookingId));
+    return !(matchesType && (matchesRecordId || matchesBookingId || matchesArchiveId));
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }

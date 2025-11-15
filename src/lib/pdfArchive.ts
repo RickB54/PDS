@@ -91,6 +91,11 @@ export function savePDFToArchive(
   // Save back to localStorage
   localStorage.setItem('pdfArchive', JSON.stringify(existing));
 
+  // Proactively notify current tab so sidebar badges refresh immediately
+  try {
+    window.dispatchEvent(new CustomEvent('pdf_archive_updated'));
+  } catch {}
+
   // Push persistent admin alert about the new PDF
   pushAdminAlert(
     "pdf_saved",

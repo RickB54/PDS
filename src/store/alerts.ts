@@ -60,7 +60,7 @@ function mapAlert(a: AdminAlert): UIAlert {
       href = "/accounting";
       break;
     case "todo_overdue":
-      href = "/checklist";
+      href = "/tasks";
       break;
     case "job_progress":
       href = "/checklist";

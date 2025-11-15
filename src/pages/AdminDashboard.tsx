@@ -738,8 +738,8 @@ export default function AdminDashboard() {
                 {!isMenuHidden('employee-dashboard') && (
                   <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
                 )}
-                {!isMenuHidden('service-checklist') && (
-                  <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/checklist" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
+              {!isMenuHidden('service-checklist') && (
+                  <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/tasks" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
                 )}
               </div>
             </Card>

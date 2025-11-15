@@ -39,7 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { dismissAlertsForRecord, getAdminAlerts, pushAdminAlert } from "@/lib/adminAlerts";
+import { dismissAlertsForRecord } from "@/lib/adminAlerts";
 import { useAlertsStore } from "@/store/alerts";
 import jsPDF from "jspdf";
 import { savePDFToArchive } from "@/lib/pdfArchive";
@@ -173,18 +173,8 @@ interface PDFRecord {
     return matchesSearch && matchesType && matchesDate;
   });
 
-  // Helper: detect if a record currently has any admin alerts associated
-  const recordHasAlerts = (rec: PDFRecord): boolean => {
-    try {
-      const list = getAdminAlerts();
-      return list.some(a => {
-        const p = a.payload || {};
-        const matchesType = !rec.recordType || String(p.recordType || '') === String(rec.recordType);
-        const matchesId = String(p.recordId || '') === String(rec.recordId) || String(p.bookingId || '') === String(rec.recordId);
-        return matchesType && matchesId && !a.read;
-      });
-    } catch { return false; }
-  };
+  // Bell state mirrors viewed status: unviewed → bell on (yellow), viewed → bell off (white)
+  // Using the global view tracker ensures sidebar badges stay in sync.
 
   const buildBackendUrl = (record: PDFRecord) => {
     const base = "http://localhost:6061/files/";
@@ -388,38 +378,25 @@ interface PDFRecord {
                             variant="ghost"
                             onClick={() => {
                               try {
-                                // Toggle viewed/unviewed state for badge tracking
+                                // Deterministically map bell state to viewed status
+                                // Bell ON (yellow) means unviewed; Bell OFF (white) means viewed
                                 const viewed = isViewed("file", record.id);
                                 if (viewed) {
+                                  // Turn bell ON → mark as unviewed
                                   unmarkViewed("file", record.id);
                                 } else {
+                                  // Turn bell OFF → mark as viewed
                                   markViewed("file", record.id);
                                 }
-                                const hasAlerts = recordHasAlerts(record);
-                                if (hasAlerts) {
-                                  // Dismiss any alerts tied to this record
-                                  dismissAlertsForRecord(record.recordType, record.recordId);
-                                  toast({ title: "Alerts cleared", description: "Badges updated." });
-                                } else {
-                                  // Add a lightweight alert tied to this record to flag it
-                                  try {
-                                    pushAdminAlert(
-                                      'accounting_update',
-                                      `Flagged record: ${record.fileName}`,
-                                      user?.name || 'admin',
-                                      { recordType: record.recordType, recordId: record.recordId }
-                                    );
-                                    toast({ title: "Alert added", description: "Record flagged for review." });
-                                  } catch {}
-                                }
-                                // Refresh alerts across UI immediately and force a local re-render
-                                useAlertsStore.getState().refresh();
+                                // Clear any historical admin alerts tied to this exact archive ID
+                                try { dismissAlertsForRecord(record.recordType, record.id); } catch {}
+                                // Force re-render
                                 setRecords(prev => [...prev]);
                               } catch {}
                             }}
                             title="Toggle alert flag for this file"
                           >
-                            {recordHasAlerts(record) ? (
+                            {!isViewed("file", record.id) ? (
                               <Bell className="h-4 w-4 text-yellow-400" />
                             ) : (
                               <Bell className="h-4 w-4 text-white" />

@@ -15,7 +15,8 @@ import {
   Calendar,
   TicketPercent,
   GraduationCap,
-  Shield
+  Shield,
+  CheckSquare
 } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -64,6 +65,10 @@ export function AppSidebar() {
       setTick((t) => t + 1);
     }
     window.addEventListener('storage', onStorage as any);
+    // Listen for proactive update events that fire in the same tab
+    const bump = () => setTick(t => t + 1);
+    window.addEventListener('admin_alerts_updated', bump as any);
+    window.addEventListener('pdf_archive_updated', bump as any);
     return () => window.removeEventListener('storage', onStorage as any);
   }, [refresh]);
 
@@ -92,6 +97,12 @@ export function AppSidebar() {
     try {
       const c = Number(localStorage.getItem('inventory_low_count') || '0');
       return isNaN(c) ? 0 : c;
+    } catch { return 0; }
+  })();
+  const todoCount = (() => {
+    try {
+      const list = getAdminAlerts();
+      return list.filter(a => a.type === 'todo_overdue' && !a.read).length;
     } catch { return 0; }
   })();
   const [payrollDueCount, setPayrollDueCount] = useState(0);
@@ -208,6 +219,19 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+
+              {/* Tasks module */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <NavLink to="/tasks" className={linkClass}>
+                    <CheckSquare className="h-4 w-4" />
+                    <span>Tasks</span>
+                  </NavLink>
+                </SidebarMenuButton>
+                {todoCount > 0 && (
+                  <SidebarMenuBadge className="bg-red-600 text-white">{todoCount}</SidebarMenuBadge>
+                )}
+              </SidebarMenuItem>
 
               {!isHidden('search-customer') && (
                 <SidebarMenuItem>
