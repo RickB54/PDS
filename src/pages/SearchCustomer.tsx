@@ -9,7 +9,7 @@ import { getCustomers, deleteCustomer as removeCustomer, purgeTestCustomers, get
 import { getUnifiedCustomers } from "@/lib/customers";
 import api from "@/lib/api";
 import { Search, Pencil, Trash2, Plus, Printer, Save, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, FileBarChart, Eye, Edit } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
@@ -48,12 +48,15 @@ interface Customer {
 }
 
 const SearchCustomer = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [autoOpenedAdd, setAutoOpenedAdd] = useState(false);
 const [dateFilter, setDateFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
 
@@ -114,6 +117,18 @@ const refresh = async () => {
       }
     }
   };
+
+  // Auto-open Add Customer modal ONCE when `?add=true` or bare `?add` exists
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const flag = params.get("add");
+    const shouldOpen = flag === "true" || flag === "1" || (flag === null && params.has("add"));
+    if (shouldOpen && !autoOpenedAdd) {
+      setEditing(null);
+      setModalOpen(true);
+      setAutoOpenedAdd(true);
+    }
+  }, [location.search, autoOpenedAdd]);
 
 const filterByDate = (customer: Customer) => {
     const now = new Date();
@@ -439,12 +454,23 @@ const filterByDate = (customer: Customer) => {
 
       <CustomerModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) {
+            const params = new URLSearchParams(location.search);
+            if (params.has("add")) navigate(location.pathname, { replace: true });
+          }
+        }}
         initial={editing}
-        onSave={onSaveModal}
+        onSave={async (data) => {
+          await onSaveModal(data);
+          const params = new URLSearchParams(location.search);
+          if (params.has("add")) navigate(location.pathname, { replace: true });
+        }}
       />
     </div>
   );
 };
 
 export default SearchCustomer;
+ 

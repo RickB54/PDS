@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+// Removed accordion import since we are restoring the boxes grid layout
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,11 +45,12 @@ import localforage from "localforage";
 import { useAlertsStore } from "@/store/alerts";
 import { useBookingsStore } from "@/store/bookings";
 import { isViewed } from "@/lib/viewTracker";
-import { getInvoices } from "@/lib/db";
+import { getInvoices, upsertCustomer } from "@/lib/db";
 import api from "@/lib/api";
 import { postFullSync } from "@/lib/servicesMeta";
 import { useToast } from "@/hooks/use-toast";
 import { notify } from "@/store/alerts";
+import CustomerModal from "@/components/customers/CustomerModal";
 
 type Job = { finishedAt: string; totalRevenue: number; status: string };
 
@@ -127,6 +129,7 @@ export default function AdminDashboard() {
   const [adminJobsCount, setAdminJobsCount] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
   const [overdueCount, setOverdueCount] = useState<number>(0);
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   // Menu visibility tick to refresh when settings change
   const [menuTick, setMenuTick] = useState(0);
   // User Administration modal state
@@ -489,27 +492,42 @@ export default function AdminDashboard() {
     title,
     subtitle,
     href,
+    onClick,
     Icon,
     badgeCount = 0,
-  }: { title: string; subtitle: string; href: string; Icon: any; badgeCount?: number; }) => (
-    <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-red-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(220,38,38,0.35)]">
-      {badgeCount > 0 && (
-        <div className="absolute top-2 right-2 bg-red-600/90 text-white rounded-full h-5 w-5 flex items-center justify-center text-[10px]">
-          {badgeCount}
-        </div>
-      )}
-      <div className="flex items-start">
-        <div className="flex-1">
-          <div className="text-lg font-semibold text-white">{title}</div>
-          <div className="text-sm text-zinc-400">{subtitle}</div>
-        </div>
-        <Icon className="w-8 h-8 text-red-600/80" />
+    accent = 'blue',
+  }: { title: string; subtitle?: string; href?: string; onClick?: () => void; Icon: any; badgeCount?: number; accent?: 'blue' | 'purple' | 'orange' | 'pink' | 'yellow' | 'green' | 'indigo' | 'cyan' | 'teal' | 'zinc'; }) => {
+    const accents: Record<string, { icon: string; badge: string; btn: string; hoverRing: string }> = {
+      blue:   { icon: 'text-blue-600/80',   badge: 'bg-blue-600/90',   btn: 'border-blue-600 text-blue-600 hover:bg-blue-600/10',   hoverRing: 'hover:ring-2 hover:ring-blue-600' },
+      purple: { icon: 'text-purple-600/80', badge: 'bg-purple-600/90', btn: 'border-purple-600 text-purple-600 hover:bg-purple-600/10', hoverRing: 'hover:ring-2 hover:ring-purple-600' },
+      orange: { icon: 'text-orange-500/80', badge: 'bg-orange-500/90', btn: 'border-orange-500 text-orange-500 hover:bg-orange-500/10', hoverRing: 'hover:ring-2 hover:ring-orange-500' },
+      pink:   { icon: 'text-pink-600/80',   badge: 'bg-pink-600/90',   btn: 'border-pink-600 text-pink-600 hover:bg-pink-600/10',   hoverRing: 'hover:ring-2 hover:ring-pink-600' },
+      yellow: { icon: 'text-yellow-500/80', badge: 'bg-yellow-500/90', btn: 'border-yellow-500 text-yellow-500 hover:bg-yellow-500/10', hoverRing: 'hover:ring-2 hover:ring-yellow-500' },
+      green:  { icon: 'text-green-600/80',  badge: 'bg-green-600/90',  btn: 'border-green-600 text-green-600 hover:bg-green-600/10',  hoverRing: 'hover:ring-2 hover:ring-green-600' },
+      indigo: { icon: 'text-indigo-600/80', badge: 'bg-indigo-600/90', btn: 'border-indigo-600 text-indigo-600 hover:bg-indigo-600/10', hoverRing: 'hover:ring-2 hover:ring-indigo-600' },
+      cyan:   { icon: 'text-cyan-600/80',   badge: 'bg-cyan-600/90',   btn: 'border-cyan-600 text-cyan-600 hover:bg-cyan-600/10',   hoverRing: 'hover:ring-2 hover:ring-cyan-600' },
+      teal:   { icon: 'text-teal-600/80',   badge: 'bg-teal-600/90',   btn: 'border-teal-600 text-teal-600 hover:bg-teal-600/10',   hoverRing: 'hover:ring-2 hover:ring-teal-600' },
+      zinc:   { icon: 'text-zinc-400/80',   badge: 'bg-zinc-600/90',   btn: 'border-zinc-600 text-zinc-300 hover:bg-zinc-600/10',   hoverRing: 'hover:ring-2 hover:ring-zinc-600' },
+    };
+    const a = accents[accent] || accents.blue;
+    const inner = (
+      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-sm ${a.btn}`}>
+        <Icon className={`w-3.5 h-3.5 ${a.icon}`} />
+        <span>{title}</span>
+        {badgeCount > 0 && (
+          <span className={`ml-1 ${a.badge} text-white rounded-full h-4 w-4 inline-flex items-center justify-center text-[9px]`}>{badgeCount}</span>
+        )}
       </div>
-      <Link to={href} className="block mt-3">
-        <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open</Button>
-      </Link>
-    </Card>
-  );
+    );
+    if (href) {
+      return (
+        <Link to={href} className={`${a.hoverRing}`}>{inner}</Link>
+      );
+    }
+    return (
+      <button type="button" onClick={onClick} className={`${a.hoverRing}`}>{inner}</button>
+    );
+  };
 
   // Removed auto FAQ seeding to keep Website Administration independent
 
@@ -545,109 +563,182 @@ export default function AdminDashboard() {
           </div>
         </Card>
 
-        {/* Quick-action boxes grid (3 columns at lg and above) */}
+        {/* Eight grouped boxes with combined menu items in a 3x3-style grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Start a Job — first slot, links to Service Checklist */}
-          {!isMenuHidden('start-job') && (
-            <RedBox title="Start a Job" subtitle="Open Service Checklist" href="/service-checklist" Icon={ClipboardCheck} />
-          )}
-          {/* Admin Cheat Sheet & Exam Control — revert to 3 buttons */}
-          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-purple-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(109,40,217,0.35)]">
-            <div className="flex items-start">
-              <div className="flex-1">
-                <div className="text-lg font-semibold text-purple-600">Training Cheat Sheet</div>
-                <div className="text-sm text-zinc-400">Rapid handbook reference, print, and PDF save</div>
-              </div>
+          {/* Training Hub */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardCheck className="w-6 h-6 text-green-500" />
+              <div className="text-lg font-bold">Training Hub</div>
             </div>
-            <div className="mt-3 flex flex-col gap-2">
-              <Button size="sm" variant="outline" className="w-full rounded-md border-purple-600 text-purple-600 hover:bg-purple-600/10" onClick={() => setCheatOpen(true)}>Open Cheat Sheet</Button>
-              <Link to="/exam-admin" className="block">
-                <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Manage Exam</Button>
-              </Link>
-              <Link to="/exam" className="block">
-                <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open Entire Exam</Button>
-              </Link>
-            </div>
-          </Card>
-          {/* System Admin — combined Website Administration and User Management */}
-          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(63,63,70,0.35)]">
-            <div className="flex items-start">
-              <div className="flex-1">
-                <div className="text-lg font-semibold text-white">System Admin</div>
-                <div className="text-sm text-zinc-400">Website Administration and User Management</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-              {/* Website Administration */}
-              <div className="rounded-lg p-3 border border-zinc-800">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-blue-700">Website Administration</div>
-                    <div className="text-xs text-zinc-400">Manage vehicle types, FAQs, contact, and about</div>
-                  </div>
-                  <Shield className="w-6 h-6 text-blue-600/80" />
-                </div>
-                <Link to="/website-admin" className="block mt-2">
-                  <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Open</Button>
+            {/* Cheat Sheet & Exam Control — compact pill links with icons */}
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="mt-1 flex flex-row flex-wrap gap-1.5">
+                <button type="button" onClick={() => setCheatOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-purple-600 text-purple-600 hover:bg-purple-600/10 cursor-pointer">
+                  <FileText className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Open Cheat Sheet</span>
+                </button>
+                <Link to="/exam-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-indigo-600 text-indigo-600 hover:bg-indigo-600/10">
+                  <Cog className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Manage Exam</span>
+                </Link>
+                <Link to="/exam" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-pink-600 text-pink-600 hover:bg-pink-600/10">
+                  <ClipboardCheck className="w-3.5 h-3.5 text-pink-600" />
+                  <span>Open Entire Exam</span>
                 </Link>
               </div>
-              {/* User Management */}
-              <div className="rounded-lg p-3 border border-zinc-800">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-red-700">User Management</div>
-                    <div className="text-xs text-zinc-400">Employee Rights — Port 6061</div>
-                  </div>
-                  <Users className="w-6 h-6 text-red-600/80" />
-                </div>
-                <Link to="/user-management" className="block mt-2">
-                  <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open</Button>
+            </Card>
+          </Card>
+
+          {/* Admin Control */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="w-6 h-6 text-blue-500" />
+              <div className="text-lg font-bold">Admin Control</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-1.5">
+              {/* System Admin — compact pill links */}
+              <Link to="/website-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600 text-blue-600 hover:bg-blue-600/10">
+                <Shield className="w-3.5 h-3.5 text-blue-600" />
+                <span>Website Administration</span>
+              </Link>
+              <Link to="/user-management" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-pink-600 text-pink-600 hover:bg-pink-600/10">
+                <Users className="w-3.5 h-3.5 text-pink-600" />
+                <span>User Management</span>
+              </Link>
+              {!isMenuHidden('settings') && (
+                <Link to="/settings" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-cyan-600 text-cyan-600 hover:bg-cyan-600/10">
+                  <Cog className="w-3.5 h-3.5 text-cyan-600" />
+                  <span>Company Settings</span>
                 </Link>
-              </div>
+              )}
             </div>
           </Card>
-          {!isMenuHidden('jobs-completed-admin') && (
-            <RedBox title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
-          )}
-          {!isMenuHidden('bookings') && (
-            <RedBox title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
-          )}
-          {!isMenuHidden('search-customer') && (
-            <RedBox title="Add Customer" subtitle="Find or add customer" href="/search-customer" Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
-          )}
-          {!isMenuHidden('invoicing') && (
-            <RedBox title="Create Invoice" subtitle={`${unpaidInvoices} unpaid`} href="/invoicing" Icon={FileText} badgeCount={Math.max(unpaidInvoices, badgeByType('invoice_unpaid'))} />
-          )}
-          {!isMenuHidden('inventory-control') && (
-            <RedBox title="Low Inventory" subtitle={`${criticalInventory} items critical`} href="/inventory-control" Icon={Package} badgeCount={criticalInventory} />
-          )}
-          {!isMenuHidden('payroll') && (
-            <RedBox title="Payroll Due" subtitle={`${overdueCount} employees due payment this week — $${totalDue.toFixed(2)} total`} href="/payroll" Icon={DollarSign} badgeCount={Math.max(badgeByType('payroll_due'), overdueCount)} />
-          )}
-          {!isMenuHidden('pay-employee') && (
-            <RedBox title="Pay Employee" subtitle="Open checks/cash/direct deposit" href="/payroll?modal=checks" Icon={DollarSign} />
-          )}
-          {!isMenuHidden('accounting') && (
-            <RedBox title="Accounting" subtitle="View P&L" href="/accounting" Icon={Calculator} badgeCount={badgeByType('accounting_update')} />
-          )}
-          {!isMenuHidden('file-manager') && (
-            <RedBox title="File Manager" subtitle={`Unviewed: ${unviewedFilesCount}`} href="/file-manager" Icon={Folder} badgeCount={unviewedFilesCount} />
-          )}
-          {!isMenuHidden('customer-profiles') && (
-            <RedBox title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
-          )}
-          {!isMenuHidden('employee-dashboard') && (
-            <RedBox title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
-          )}
-          {!isMenuHidden('service-checklist') && (
-            <RedBox title="Todo" subtitle={`Overdue: ${0}`} href="/checklist" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
-          )}
-          {!isMenuHidden('package-pricing') && (
-            <RedBox title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
-          )}
-          {!isMenuHidden('settings') && (
-            <RedBox title="Company Settings" subtitle="Edit business" href="/settings" Icon={Cog} />
-          )}
+
+          {/* Job Operations */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardCheck className="w-6 h-6 text-orange-500" />
+              <div className="text-lg font-bold">Job Operations</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('start-job') && (
+                <RedBox accent="orange" title="Start a Job" subtitle="Open Service Checklist" href="/service-checklist" Icon={ClipboardCheck} />
+              )}
+              {!isMenuHidden('jobs-completed-admin') && (
+                <RedBox accent="orange" title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
+              )}
+              {!isMenuHidden('bookings') && (
+                <RedBox accent="orange" title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
+              )}
+            </div>
+          </Card>
+
+          {/* Customer Hub */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-6 h-6 text-purple-500" />
+              <div className="text-lg font-bold">Customer Hub</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('search-customer') && (
+                <RedBox accent="purple" title="Add Customer" subtitle="Open popup to add" onClick={() => setAddCustomerOpen(true)} Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
+              )}
+              {!isMenuHidden('customer-profiles') && (
+                <RedBox accent="purple" title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
+              )}
+            </div>
+          </Card>
+
+          {/* Finance Center */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="w-6 h-6 text-green-600" />
+              <div className="text-lg font-bold">Finance Center</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('invoicing') && (
+                <RedBox accent="green" title="Create Invoice" subtitle={`${unpaidInvoices} unpaid`} href="/invoicing" Icon={FileText} badgeCount={Math.max(unpaidInvoices, badgeByType('invoice_unpaid'))} />
+              )}
+              {!isMenuHidden('payroll') && (
+                <RedBox accent="green" title="Payroll Due" subtitle={`${overdueCount} employees due payment this week — $${totalDue.toFixed(2)} total`} href="/payroll" Icon={DollarSign} badgeCount={Math.max(badgeByType('payroll_due'), overdueCount)} />
+              )}
+              {!isMenuHidden('pay-employee') && (
+                <RedBox accent="green" title="Pay Employee" subtitle="Open checks/cash/direct deposit" href="/payroll?modal=checks" Icon={DollarSign} />
+              )}
+              {!isMenuHidden('accounting') && (
+                <RedBox accent="green" title="Accounting" subtitle="View P&L" href="/accounting" Icon={Calculator} badgeCount={badgeByType('accounting_update')} />
+              )}
+              {!isMenuHidden('discount-coupons') && (
+                <RedBox accent="green" title="Discount Coupons" subtitle="Create and manage offers" href="/discount-coupons" Icon={Tag} />
+              )}
+            </div>
+          </Card>
+
+          {/* Inventory & Files */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Folder className="w-6 h-6 text-yellow-500" />
+              <div className="text-lg font-bold">Inventory & Files</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('inventory-control') && (
+                <RedBox accent="yellow" title="Low Inventory" subtitle={`${criticalInventory} items critical`} href="/inventory-control" Icon={Package} badgeCount={criticalInventory} />
+              )}
+              {!isMenuHidden('inventory-control') && (
+                <RedBox accent="yellow" title="Material Updates" subtitle="Record usage and notes" href="/inventory-control?updates=true" Icon={FileText} />
+              )}
+              {!isMenuHidden('file-manager') && (
+                <RedBox accent="yellow" title="File Manager" subtitle={`Unviewed: ${unviewedFilesCount}`} href="/file-manager" Icon={Folder} badgeCount={unviewedFilesCount} />
+              )}
+            </div>
+          </Card>
+
+          {/* Add Customer Popup */}
+          <CustomerModal
+            open={addCustomerOpen}
+            onOpenChange={setAddCustomerOpen}
+            initial={null}
+            onSave={async (data) => {
+              try {
+                await upsertCustomer(data as any);
+                setAddCustomerOpen(false);
+                toast({ title: 'Customer Saved', description: 'Record stored.' });
+              } catch (err: any) {
+                setAddCustomerOpen(false);
+                toast({ title: 'Save failed', description: err?.message || String(err), variant: 'destructive' });
+              }
+            }}
+          />
+
+          {/* Tasks & Portal */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckSquare className="w-6 h-6 text-zinc-400" />
+              <div className="text-lg font-bold">Tasks & Portal</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('employee-dashboard') && (
+                <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
+              )}
+              {!isMenuHidden('service-checklist') && (
+                <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/checklist" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
+              )}
+            </div>
+          </Card>
+
+          {/* Pricing */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-6 h-6 text-pink-500" />
+              <div className="text-lg font-bold">Pricing</div>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2">
+              {!isMenuHidden('package-pricing') && (
+                <RedBox accent="pink" title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
+              )}
+            </div>
+          </Card>
         </div>
 
         {/* Cheat Sheet Modal — panel rendered inside dialog content */}

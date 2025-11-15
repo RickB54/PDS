@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ interface UsageHistory {
 
 const InventoryControl = () => {
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [chemicals, setChemicals] = useState<Chemical[]>([]);
   type MaterialItem = {
     id: string;
@@ -58,6 +61,7 @@ const InventoryControl = () => {
   const [dateFilter, setDateFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const [updatesModalOpen, setUpdatesModalOpen] = useState(false);
+  const [autoOpenedFromQuery, setAutoOpenedFromQuery] = useState(false);
   const [updateNotes, setUpdateNotes] = useState("");
   const [updateChecklistText, setUpdateChecklistText] = useState("");
   const [updateEmployee, setUpdateEmployee] = useState<string>("");
@@ -78,6 +82,17 @@ const InventoryControl = () => {
       setEmployees(emps as any[]);
     })();
   }, []);
+
+  // Auto-open Material Updates modal ONCE when `?updates=true` or `?updates` is present
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const flag = params.get("updates");
+    const shouldOpen = flag === "true" || flag === "1" || (flag === null && params.has("updates"));
+    if (shouldOpen && !autoOpenedFromQuery) {
+      setUpdatesModalOpen(true);
+      setAutoOpenedFromQuery(true);
+    }
+  }, [location.search, autoOpenedFromQuery]);
 
   useEffect(() => {
     localStorage.setItem('inventory-date-filter', dateFilter);
@@ -342,7 +357,18 @@ const InventoryControl = () => {
       />
 
       {/* Material Updates modal (Usage History) */}
-      <Dialog open={updatesModalOpen} onOpenChange={setUpdatesModalOpen}>
+      <Dialog
+        open={updatesModalOpen}
+        onOpenChange={(open) => {
+          setUpdatesModalOpen(open);
+          if (!open) {
+            const params = new URLSearchParams(location.search);
+            if (params.has("updates")) {
+              navigate(location.pathname, { replace: true });
+            }
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Material Updates</DialogTitle>
@@ -386,7 +412,16 @@ const InventoryControl = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdatesModalOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUpdatesModalOpen(false);
+                const params = new URLSearchParams(location.search);
+                if (params.has("updates")) navigate(location.pathname, { replace: true });
+              }}
+            >
+              Cancel
+            </Button>
             <Button className="bg-gradient-hero" onClick={async () => {
               const now = new Date().toISOString();
               const matName = materials.find(m=>m.id===updateMatId)?.name;
@@ -426,6 +461,8 @@ const InventoryControl = () => {
               }
 
               setUpdatesModalOpen(false);
+              const params = new URLSearchParams(location.search);
+              if (params.has("updates")) navigate(location.pathname, { replace: true });
               setUpdateMatId(''); setUpdateMatQtyNote(''); setUpdateChemId(''); setUpdateChemFraction(''); setUpdateChecklistText(''); setUpdateNotes('');
               toast({ title: 'Update Saved', description: 'Usage history updated and employee notified.' });
             }}>Save Update</Button>
