@@ -25,10 +25,16 @@ function mapAlert(a: AdminAlert): UIAlert {
   let href = "/admin-dashboard";
   switch (a.type) {
     case "exam_started":
+    case "exam_scheduled":
+    case "exam_reminder":
     case "exam_failed":
+    case "exam_paused":
       href = "/file-manager?category=" + encodeURIComponent("Employee Training");
       break;
     case "exam_passed":
+      href = "/file-manager?category=" + encodeURIComponent("Employee Training");
+      break;
+    case "handbook_completed":
       href = "/file-manager?category=" + encodeURIComponent("Employee Training");
       break;
     case "pdf_saved":
@@ -63,6 +69,7 @@ function mapAlert(a: AdminAlert): UIAlert {
       href = "/payroll";
       break;
     case "admin_email_sent":
+    case "admin_message":
       href = "/admin-dashboard";
       break;
     case "pricing_update":
@@ -83,30 +90,30 @@ export const useAlertsStore = create<AlertsState>((set, get) => {
   const initialAlerts = getAdminAlerts();
   return {
     alerts: initialAlerts,
-    // Suppress payroll_due in bell dropdown/latest while keeping alerts array intact for badges
+    // Suppress payroll_due in dropdown items but COUNT all unread in badge
     latest: initialAlerts.filter(a => a.type !== 'payroll_due').map(mapAlert),
-    unreadCount: initialAlerts.filter(a => !a.read && a.type !== 'payroll_due').length,
+    unreadCount: initialAlerts.filter(a => !a.read).length,
     lastNotifiedId: undefined,
     add: (alert) => {
       // Persist via existing util
       pushAdminAlert(alert.type, alert.message, alert.actor, alert.payload);
       const alerts = getAdminAlerts();
-      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read && a.type !== 'payroll_due').length, lastNotifiedId: alert.id });
+      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read).length, lastNotifiedId: alert.id });
     },
     markAllRead: () => {
       markAllAlertsRead();
       const alerts = getAdminAlerts();
-      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read && a.type !== 'payroll_due').length });
+      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read).length });
     },
     markRead: (id: string) => {
       markAlertRead(id);
       const alerts = getAdminAlerts();
-      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read && a.type !== 'payroll_due').length });
+      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read).length });
     },
     dismiss: (id: string) => {
       dismissAlert(id);
       const alerts = getAdminAlerts();
-      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read && a.type !== 'payroll_due').length });
+      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read).length });
     },
     dismissAll: () => {
       clearAllAlerts();
@@ -115,7 +122,7 @@ export const useAlertsStore = create<AlertsState>((set, get) => {
     },
     refresh: () => {
       const alerts = getAdminAlerts();
-      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read && a.type !== 'payroll_due').length });
+      set({ alerts, latest: alerts.filter(a => a.type !== 'payroll_due').map(mapAlert), unreadCount: alerts.filter(a => !a.read).length });
     }
   };
 });

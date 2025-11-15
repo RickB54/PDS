@@ -4,7 +4,7 @@ import { pushAdminAlert } from "@/lib/adminAlerts";
 interface PDFRecord {
   id: string;
   fileName: string;
-  recordType: "Invoice" | "Estimate" | "Job" | "Checklist" | "Customer" | "Employee Training" | "Bookings" | "Admin Updates" | "Payroll";
+  recordType: "Invoice" | "Estimate" | "Job" | "Checklist" | "Customer" | "Employee Training" | "Bookings" | "Admin Updates" | "Payroll" | "Employee Contact";
   customerName: string;
   date: string;
   timestamp: string;
@@ -62,6 +62,9 @@ export function savePDFToArchive(
       break;
     case "Payroll":
       defaultPath = `Payroll/${year}/${monthName}/`;
+      break;
+    case "Employee Contact":
+      defaultPath = `Employee Contact/`;
       break;
     default:
       defaultPath = '';

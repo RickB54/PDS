@@ -16,6 +16,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import jsPDF from "jspdf";
+import OrientationModal from "@/components/training/OrientationModal";
 
 // 113-step training flow, no duplicates, ordered top-to-bottom
 const TRAINING_STEPS: string[] = [
@@ -167,6 +168,7 @@ const CERT_STORAGE_KEY = "employee_training_certified";
 
 const EmployeeTrainingCourse = () => {
   const user = getCurrentUser();
+  const [orientationOpen, setOrientationOpen] = useState(false);
   const total = TRAINING_STEPS.length;
   const [currentStep, setCurrentStep] = useState(0);
   const [checked, setChecked] = useState<boolean[]>(() => Array(total).fill(false));
@@ -176,6 +178,7 @@ const EmployeeTrainingCourse = () => {
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [examScore, setExamScore] = useState<number | null>(null);
   const [answers, setAnswers] = useState<number[]>(Array(25).fill(-1));
+  // Simple exam mode (original look)
   const [certified, setCertified] = useState<string | null>(() => localStorage.getItem(CERT_STORAGE_KEY));
 
   const progress = useMemo(() => {
@@ -301,6 +304,8 @@ const EmployeeTrainingCourse = () => {
     setExamStarted(true);
   };
 
+  // Removed per-question finalize & sounds for classic exam experience
+
   const submitExam = () => {
     const correctCount = answers.reduce((acc, a, i) => acc + (a === EXAM[i].correct ? 1 : 0), 0);
     setExamSubmitted(true);
@@ -350,6 +355,9 @@ const EmployeeTrainingCourse = () => {
     <div className="min-h-screen bg-background">
       <PageHeader title="Employee Training Course" />
       <main className="container mx-auto px-4 py-8 max-w-5xl">
+        <div className="flex justify-end mb-4">
+          <Button className="bg-red-600 text-white" onClick={() => setOrientationOpen(true)}>Orientation</Button>
+        </div>
         <Card className="p-6 space-y-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -406,23 +414,20 @@ const EmployeeTrainingCourse = () => {
             {PRO_TIPS.map((tip, i) => (
               <AccordionItem value={`tip-${i}`} key={i}>
                 <AccordionTrigger>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{tip}</span>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={tipsChecked[i]}
-                        onCheckedChange={(v) => {
-                          const next = [...tipsChecked];
-                          next[i] = Boolean(v);
-                          setTipsChecked(next);
-                          // Do not push alerts for individual tip checks
-                        }}
-                      />
-                      <span className="text-sm">Got it!</span>
-                    </div>
-                  </div>
+                  <span className="w-full text-left">{tip}</span>
                 </AccordionTrigger>
                 <AccordionContent>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Checkbox
+                      checked={tipsChecked[i]}
+                      onCheckedChange={(v) => {
+                        const next = [...tipsChecked];
+                        next[i] = Boolean(v);
+                        setTipsChecked(next);
+                      }}
+                    />
+                    <span className="text-sm">Got it!</span>
+                  </div>
                   <p className="text-sm text-muted-foreground">Professional guidance to reduce rework and improve finish quality.</p>
                 </AccordionContent>
               </AccordionItem>
@@ -476,6 +481,8 @@ const EmployeeTrainingCourse = () => {
           </Card>
         )}
       </main>
+      {/* Orientation Modal (new feature, course untouched) */}
+      <OrientationModal open={orientationOpen} onOpenChange={setOrientationOpen} />
     </div>
   );
 };

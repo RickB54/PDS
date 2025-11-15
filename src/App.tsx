@@ -20,6 +20,7 @@ import Accounting from "./pages/Accounting";
 import Reports from "./pages/Reports";
 import TrainingManual from "./pages/TrainingManual";
 import EmployeeTrainingCourse from "./pages/EmployeeTrainingCourse";
+import Certificate from "./pages/Certificate";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import CompanyEmployees from "./pages/CompanyEmployees";
 import FileManager from "./pages/FileManager";
@@ -42,6 +43,9 @@ import DiscountCoupons from "./pages/DiscountCoupons";
 import PackagePricing from "./pages/PackagePricing";
 import Payroll from "./pages/Payroll";
 import JobsCompleted from "./pages/JobsCompleted";
+import ExamPage from "./pages/ExamPage";
+import ExamAdmin from "./pages/ExamAdmin";
+import CheatSheet from "./pages/CheatSheet";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -220,6 +224,26 @@ const App = () => {
                     <Route path="/employee-training" element={
                       <ProtectedRoute allowedRoles={['employee', 'admin']}>
                         <EmployeeTrainingCourse />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/certificate" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <Certificate />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/exam" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <ExamPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/exam-admin" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <ExamAdmin />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/cheat-sheet" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <CheatSheet />
                       </ProtectedRoute>
                     } />
                     <Route path="/training-progress" element={

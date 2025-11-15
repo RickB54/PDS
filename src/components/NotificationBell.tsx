@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function NotificationBell() {
-  const { latest, unreadCount, markAllRead, markRead, dismissAll, refresh } = useAlertsStore();
+  const { alerts, latest, unreadCount, markAllRead, markRead, dismissAll, refresh } = useAlertsStore();
   const [ring, setRing] = useState(false);
   const prevUnreadRef = useRef(unreadCount);
 
@@ -46,16 +46,23 @@ export default function NotificationBell() {
   }, [refresh]);
 
   const items = useMemo(() => [...latest].reverse().slice(0, 10), [latest]);
-
-  const bellColorClass = unreadCount > 0 ? "text-yellow-400" : "text-red-500";
+  // Compute important unread using full AdminAlert objects, not mapped UI items
+  const importantUnread = useMemo(
+    () => alerts.filter(a => !a.read && (a.type === 'exam_reminder' || a.type === 'admin_message')).length,
+    [alerts]
+  );
+  const bellColorClass = importantUnread > 0 ? "text-yellow-400" : (unreadCount > 0 ? "text-white" : "text-red-500");
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative">
           <Bell className={`h-5 w-5 ${bellColorClass} ${ring ? 'animate-bounce' : ''}`} />
-          {unreadCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-black">{unreadCount}</Badge>
+          {/* Show badge for important alerts; otherwise show unread count subtly */}
+          {importantUnread > 0 ? (
+            <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-black">{importantUnread}</Badge>
+          ) : (
+            <Badge className="absolute -top-1 -right-1 bg-zinc-700 text-white">{unreadCount}</Badge>
           )}
         </Button>
       </DropdownMenuTrigger>

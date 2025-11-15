@@ -14,7 +14,7 @@ const MobileSetup = () => {
             Comprehensive equipment list for your F150 bed configuration
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Refer to the Training Manual → Mobile Setup tab for complete details
+Refer to the Quick Detailing Manual → Mobile Setup tab for complete details
           </p>
         </Card>
       </main>

@@ -95,6 +95,7 @@ const api = async (endpoint, options = {}) => {
     try {
       const users = (await localforage.getItem('users')) || [];
       const companyEmps = (await localforage.getItem('company-employees')) || [];
+      // Normalize company employees into the users shape
       const normalizedCompany = (Array.isArray(companyEmps) ? companyEmps : []).map((e) => ({
         id: `emp_${String(e.email || e.name || Math.random()).toLowerCase()}`,
         name: e.name || '',
@@ -104,8 +105,30 @@ const api = async (endpoint, options = {}) => {
         updatedAt: e.updatedAt || null,
         lastLogin: e.lastLogin || null,
       }));
-      const merged = [...(Array.isArray(users) ? users : []), ...normalizedCompany];
-      return merged.filter((u) => String(u.role) === 'employee');
+
+      // Merge and de-duplicate by stable key (email -> name fallback),
+      // preferring the most recently updated record when conflicts occur.
+      const byKey = new Map();
+      const push = (item) => {
+        // Only consider employees here
+        const role = String(item.role || '').toLowerCase();
+        if (role !== 'employee') return;
+        const key = (String(item.email || '').toLowerCase() || String(item.name || '').toLowerCase());
+        if (!key) return; // skip items without any key
+        const prev = byKey.get(key);
+        if (!prev) {
+          byKey.set(key, item);
+        } else {
+          const pTs = prev.updatedAt ? new Date(prev.updatedAt).getTime() : 0;
+          const cTs = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+          byKey.set(key, cTs >= pTs ? { ...prev, ...item } : prev);
+        }
+      };
+
+      (Array.isArray(users) ? users : []).forEach(push);
+      normalizedCompany.forEach(push);
+
+      return Array.from(byKey.values());
     } catch {
       return [];
     }
@@ -849,6 +872,78 @@ const api = async (endpoint, options = {}) => {
       return { ok: true };
     } catch (e) {
       return { ok: false, error: 'failed_to_save_estimate_local' };
+    }
+  }
+
+  // =====================
+  // Employee Training APIs
+  // =====================
+  // Handbook completion — persist record and best-effort forward
+  if (endpoint === '/api/training/handbook-complete' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const { employeeId = '', date = new Date().toISOString(), items = 133, name = '' } = payload || {};
+      const list = (await localforage.getItem('training-handbook')) || [];
+      const record = { id: `th_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, employeeId, name, date, items };
+      list.push(record);
+      await localforage.setItem('training-handbook', list);
+      // Notify UI listeners
+      try { window.dispatchEvent(new CustomEvent('training-handbook-complete', { detail: record })); } catch {}
+      // Forward to live backend if available
+      try {
+        await fetchWithRetry(`${API_BASE}/api/training/handbook-complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+        }, 1);
+      } catch {}
+      return { ok: true, id: record.id };
+    } catch (e) {
+      return { ok: false, error: 'failed_to_save_handbook_local' };
+    }
+  }
+  // Exam progress — save index + answers snapshot
+  if (endpoint === '/api/training/exam-progress' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const { employeeId = '', index = 0, answers = [] } = payload || {};
+      const key = `training-exam-progress:${String(employeeId || 'unknown')}`;
+      const record = { employeeId, index: Number(index) || 0, answers: Array.isArray(answers) ? answers : [] , savedAt: new Date().toISOString() };
+      await localforage.setItem(key, record);
+      try { window.dispatchEvent(new CustomEvent('training-exam-progress', { detail: record })); } catch {}
+      // Best-effort forward
+      try {
+        await fetchWithRetry(`${API_BASE}/api/training/exam-progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+        }, 1);
+      } catch {}
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: 'failed_to_save_progress_local' };
+    }
+  }
+  // Exam submission — store results
+  if (endpoint === '/api/training/exam-submit' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const { employeeId = '', answers = [], score = 0, percent = 0, pass = false } = payload || {};
+      const list = (await localforage.getItem('training-exams')) || [];
+      const record = { id: `tx_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, employeeId, answers: Array.isArray(answers) ? answers : [], score: Number(score)||0, percent: Number(percent)||0, pass: !!pass, date: new Date().toISOString() };
+      list.push(record);
+      await localforage.setItem('training-exams', list);
+      try { window.dispatchEvent(new CustomEvent('training-exam-submitted', { detail: record })); } catch {}
+      try {
+        await fetchWithRetry(`${API_BASE}/api/training/exam-submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+        }, 1);
+      } catch {}
+      return { ok: true, id: record.id };
+    } catch (e) {
+      return { ok: false, error: 'failed_to_save_exam_local' };
     }
   }
   // Generic checklist save (unlinked)

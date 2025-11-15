@@ -163,6 +163,17 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {/* Cheat Sheet moved to Admin Dashboard; removing from slide-out menu */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild onClick={handleNavClick}>
+                    <NavLink to="/exam-admin" className={linkClass}>
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Exam Admin</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {/* Always-visible Website Administration entry (cannot be hidden) */}
               {isAdmin && (
                 <SidebarMenuItem>
@@ -226,7 +237,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild onClick={handleNavClick}>
                     <NavLink to="/training-manual" className={linkClass}>
                       <BookOpen className="h-4 w-4" />
-                      <span>Training Manual</span>
+                      <span>Quick Detailing Manual</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

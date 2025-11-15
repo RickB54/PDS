@@ -563,9 +563,14 @@ const [params] = useSearchParams();
         doc.setFontSize(10);
         tasks.forEach(t => {
           const mark = t.checked ? '✓' : '✗';
-          const line = `${mark} ${t.name}`;
-          const wrapped = doc.splitTextToSize(line, 170);
-          doc.text(wrapped, 28, y);
+          // Draw colored mark, then item text in default color
+          if (t.checked) doc.setTextColor(22, 163, 74); // green
+          else doc.setTextColor(220, 38, 38); // red
+          doc.text(mark, 28, y);
+          doc.setTextColor(0, 0, 0);
+          const wrapped = doc.splitTextToSize(String(t.name || ''), 170);
+          // indent the text slightly after the mark
+          doc.text(wrapped, 34, y);
           y += wrapped.length * 5 + 2;
           if (y > 270) { doc.addPage(); y = 20; }
         });

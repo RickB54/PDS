@@ -6,11 +6,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const TrainingManual = () => {
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Training Manual" />
+  <PageHeader title="Quick Detailing Manual" />
       
       <main className="container mx-auto px-4 py-6 max-w-6xl">
         <Card className="p-6 bg-gradient-card border-border animate-fade-in">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Auto Detailing Training Manual</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Quick Detailing Manual</h1>
           <p className="text-muted-foreground mb-6">Complete Interior & Exterior Process + Product & Equipment Guides</p>
 
           <Tabs defaultValue="hardware" className="w-full">

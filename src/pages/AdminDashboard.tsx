@@ -39,6 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, CalendarDays, UserPlus, FileText, Package, DollarSign, Calculator, Folder, Users, Grid3X3, CheckSquare, Tag, Settings as Cog, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
+import { CheatSheetPanel } from "@/pages/CheatSheet";
 import localforage from "localforage";
 import { useAlertsStore } from "@/store/alerts";
 import { useBookingsStore } from "@/store/bookings";
@@ -67,7 +68,7 @@ const MENU_REGISTRY: { key: string; label: string }[] = [
   { key: 'package-pricing', label: 'Package Pricing' },
   { key: 'settings', label: 'Settings' },
   { key: 'discount-coupons', label: 'Discount Coupons' },
-  { key: 'training-manual', label: 'Training Manual' },
+  { key: 'training-manual', label: 'Quick Detailing Manual' },
   { key: 'company-employees', label: 'Company Employees' },
   { key: 'jobs-completed-admin', label: 'Jobs Completed by Admin' },
 ];
@@ -166,6 +167,8 @@ export default function AdminDashboard() {
   const [newAboutOpen, setNewAboutOpen] = useState(false);
   const [newAboutSection, setNewAboutSection] = useState('');
   const [newAboutContent, setNewAboutContent] = useState('');
+  // Cheat Sheet modal
+  const [cheatOpen, setCheatOpen] = useState(false);
 
   // Removed auto-open for Website Administration to decouple from Admin Dashboard
 
@@ -539,6 +542,24 @@ export default function AdminDashboard() {
 
         {/* Quick-action boxes grid (3 columns at lg and above) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Admin Cheat Sheet & Exam Control — revert to 3 buttons */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-purple-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(109,40,217,0.35)]">
+            <div className="flex items-start">
+              <div className="flex-1">
+                <div className="text-lg font-semibold text-purple-600">Training Cheat Sheet</div>
+                <div className="text-sm text-zinc-400">Rapid handbook reference, print, and PDF save</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              <Button size="sm" variant="outline" className="w-full rounded-md border-purple-600 text-purple-600 hover:bg-purple-600/10" onClick={() => setCheatOpen(true)}>Open Cheat Sheet</Button>
+              <Link to="/exam-admin" className="block">
+                <Button size="sm" variant="outline" className="w-full rounded-md border-blue-600 text-blue-600 hover:bg-blue-600/10">Manage Exam</Button>
+              </Link>
+              <Link to="/exam" className="block">
+                <Button size="sm" variant="outline" className="w-full rounded-md border-red-600 text-red-600 hover:bg-red-600/10">Open Entire Exam</Button>
+              </Link>
+            </div>
+          </Card>
           {/* Website Administration quick link box now navigates to a standalone page */}
           <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800 hover:border-blue-700 transition-shadow hover:shadow-[0_0_0_2px_rgba(37,99,235,0.35)]">
             <div className="flex items-start">
@@ -605,6 +626,16 @@ export default function AdminDashboard() {
             <RedBox title="Company Settings" subtitle="Edit business" href="/settings" Icon={Cog} />
           )}
         </div>
+
+        {/* Cheat Sheet Modal — panel rendered inside dialog content */}
+        <Dialog open={cheatOpen} onOpenChange={setCheatOpen}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Training Cheat Sheet</DialogTitle>
+            </DialogHeader>
+            <CheatSheetPanel embedded />
+          </DialogContent>
+        </Dialog>
 
         {/* User Administration Modal */}
         <Dialog open={userAdminOpen} onOpenChange={setUserAdminOpen}>
