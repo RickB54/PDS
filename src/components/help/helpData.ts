@@ -15,8 +15,8 @@ export const adminMenuTopics: HelpTopic[] = [
     title: 'Admin Dashboard',
     summary: 'Central control hub for alerts, jobs, KPIs, and quick admin actions.',
     content: [
-      'Overview cards show new bookings, unpaid invoices, inventory alerts, and file updates.',
-      'Quick links provide access to Bookings, Customer profiles, Invoicing, Accounting, Payroll, Inventory, File Manager, Reports, and more.',
+      'Overview cards show unpaid invoices, inventory alerts, task updates, and file changes.',
+      'Quick links provide access to Customer profiles, Invoicing, Accounting, Payroll, Inventory, File Manager, Reports, and more.',
       'Menu Visibility Controls allow hiding or showing dashboard tiles in the sidebar and menus.',
       'User Administration provides full user management: create, update, impersonate, and delete employees.',
       'Employee Management modal focuses on employee operations with search and edit capabilities.',
@@ -26,25 +26,12 @@ export const adminMenuTopics: HelpTopic[] = [
     section: 'menu',
   },
   {
-    id: 'bookings',
-    title: 'Bookings',
-    summary: 'Create, manage, and track customer appointments.',
-    content: [
-      'Use the Bookings Calendar for date-based scheduling and availability.',
-      'Add or edit bookings with customer, service package, and vehicle details.',
-      'Sync bookings with alerts to notify admins and employees when needed.',
-      'Filter bookings by status and perform quick actions from the list.',
-    ],
-    route: '/bookings',
-    section: 'menu',
-  },
-  {
     id: 'customers',
     title: 'Customers',
     summary: 'Manage customer profiles, search, and related records.',
     content: [
       'Create and update customer profiles including contact details and service history.',
-      'Search and link bookings, invoices, and tasks to customers.',
+      'Search and link invoices and tasks to customers.',
       'Import and export customer data using provided tools.',
     ],
     route: '/search-customer',
@@ -55,7 +42,7 @@ export const adminMenuTopics: HelpTopic[] = [
     title: 'Invoicing',
     summary: 'Generate and manage invoices, review payment status.',
     content: [
-      'Create invoices from bookings or jobs; edit line items and taxes.',
+      'Create invoices from jobs; edit line items and taxes.',
       'Track unpaid invoices and follow up via alerts or email.',
       'Export summaries for accounting and reporting needs.',
     ],
@@ -189,7 +176,7 @@ export const adminMenuTopics: HelpTopic[] = [
     summary: 'Define and manage coupons to promote services.',
     content: [
       'Create coupons with codes, expirations, and discount amounts.',
-      'Track usage and apply to bookings and invoices where supported.',
+      'Track usage and apply to invoices and services where supported.',
     ],
     route: '/discount-coupons',
     section: 'menu',
@@ -222,7 +209,7 @@ export const adminMenuTopics: HelpTopic[] = [
     summary: 'Generate business reports for performance analysis.',
     content: [
       'Use filters to produce tailored insights and exports.',
-      'Cross-link with bookings and invoicing data.',
+      'Cross-link with invoicing and tasks data.',
     ],
     route: '/reports',
     section: 'menu',
@@ -246,7 +233,7 @@ export const adminMenuTopics: HelpTopic[] = [
     content: [
       'Edit package names, descriptions, and tiered pricing.',
       'Adjust add-ons and seasonal pricing as needed.',
-      'Sync updates with website and booking forms where applicable.',
+      'Sync updates with website and customer tools where applicable.',
     ],
     route: '/package-pricing',
     section: 'menu',
@@ -259,7 +246,7 @@ export const adminDashboardTopics: HelpTopic[] = [
     title: 'Real‑time Alerts',
     summary: 'System alerts banner with unread counts and quick actions.',
     content: [
-      'Unread alerts show for payroll due, low inventory, new files, overdue tasks, and bookings.',
+      'Unread alerts show for payroll due, low inventory, new files, and overdue tasks.',
       'Use Dismiss and Dismiss All to clear reviewed alerts.',
       'Alerts sync across tabs; updates trigger badges in the sidebar.',
     ],
@@ -307,28 +294,17 @@ export const adminDashboardTopics: HelpTopic[] = [
     summary: 'Open modal to create a customer and link records.',
     content: [
       'Enter core contact data; system deduplicates by email/phone when possible.',
-      'Link bookings or tasks immediately after creation.',
+      'Link tasks or invoices immediately after creation.',
     ],
     section: 'dashboard',
     route: '/search-customer',
-  },
-  {
-    id: 'dashboard-new-booking',
-    title: 'New Booking (Quick Action)',
-    summary: 'Create an appointment from dashboard without leaving context.',
-    content: [
-      'Fill service package, vehicle, and date/time; saves to Bookings.',
-      'System raises a NEW BOOKING alert and archives a PDF when configured.',
-    ],
-    section: 'dashboard',
-    route: '/bookings',
   },
   {
     id: 'dashboard-menu-visibility',
     title: 'Menu Visibility Controls',
     summary: 'Show/hide sidebar items; syncs across tabs via storage events.',
     content: [
-      'Toggle checkboxes to show or hide items like Bookings, Inventory, File Manager, etc.',
+      'Toggle checkboxes to show or hide items like Inventory, File Manager, Tasks, etc.',
       'Changes update the slide-out menu and dashboard tiles instantly.',
     ],
     section: 'dashboard',
@@ -385,7 +361,7 @@ export const employeeMenuTopics: HelpTopic[] = [
     summary: 'Search and view customer records.',
     content: [
       'Find customers by name, phone, or email.',
-      'Review related bookings, tasks, and files where available.',
+      'Review related tasks, invoices, and files where available.',
     ],
     route: '/search-customer',
     section: 'menu',
@@ -410,17 +386,6 @@ export const employeeMenuTopics: HelpTopic[] = [
       'Check Certified Detailer badge and quick stats when available.',
     ],
     route: '/employee-dashboard',
-    section: 'menu',
-  },
-  {
-    id: 'bookings',
-    title: 'Bookings',
-    summary: 'Create and manage appointments.',
-    content: [
-      'Add new bookings with customer and vehicle details.',
-      'Review schedule and coordinate with the team.',
-    ],
-    route: '/bookings',
     section: 'menu',
   },
 ];
@@ -487,21 +452,10 @@ export const employeeDashboardTopics: HelpTopic[] = [
     summary: 'Create a new customer record.',
     content: [
       'Enter contact details and preferences.',
-      'Link bookings or tasks as needed.',
+      'Link tasks or invoices as needed.',
     ],
     section: 'dashboard',
     route: '/search-customer',
-  },
-  {
-    id: 'dashboard-new-booking',
-    title: 'NEW BOOKING',
-    summary: 'Create an appointment tied to a customer and vehicle.',
-    content: [
-      'Add date/time and package selection.',
-      'Coordinate with admin as needed for schedule changes.',
-    ],
-    section: 'dashboard',
-    route: '/bookings',
   },
   {
     id: 'dashboard-notify-admin',

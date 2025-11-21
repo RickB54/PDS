@@ -330,7 +330,7 @@ export default function OrientationModal({ open, onOpenChange, startExamOnOpen =
       {/* Orientation – Full-screen modal */}
       <DialogContent className="max-w-none w-screen h-screen sm:rounded-none p-0 bg-black text-white overflow-hidden">
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle className="text-red-500 text-2xl">Welcome To Prime Detail Solutions!</DialogTitle>
+          <DialogTitle className="text-red-500 text-2xl">Employee Handbook</DialogTitle>
         </DialogHeader>
         <div className="px-6 pb-6 space-y-6 h-[calc(100%-4rem)] overflow-auto">
           <Card className="p-4 bg-zinc-900 border-zinc-800">
@@ -385,63 +385,70 @@ export default function OrientationModal({ open, onOpenChange, startExamOnOpen =
         </div>
       </DialogContent>
 
-      {/* Handbook Sub-Modal: Green boxed UI */}
+      {/* Handbook Sub-Modal: Handbook UI */}
       <Dialog open={handbookOpen} onOpenChange={setHandbookOpen}>
-      <DialogContent className="max-w-6xl h-[90vh] bg-purple-900 text-white overflow-hidden">
+      <DialogContent className="max-w-[110rem] w-[100vw] h-[98vh] bg-purple-900 text-white overflow-hidden border border-purple-700 rounded-lg shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-white">Auto Detailing Handbook</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[78vh]">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 h-[90vh]">
           {/* Table of contents */}
-          <div className="md:col-span-1 overflow-auto pr-2">
+          <div className="md:col-span-2 overflow-y-auto overflow-x-hidden pr-4 min-w-[300px] border-r border-purple-800">
             <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between gap-2 mb-3 sticky top-0 bg-purple-900 py-2 px-2 z-10 border-b border-purple-700">
                 <span className="text-xs">Jump to skipped sections</span>
-                <Button className="bg-blue-600 text-white hover:bg-blue-700" size="sm" onClick={() => setShowSkippedOnly(s => !s)}>{showSkippedOnly ? 'Show All' : 'Show Skipped'}</Button>
+                <Button className="bg-blue-600 text-white hover:bg-blue-700 shrink-0 whitespace-nowrap" size="sm" onClick={() => setShowSkippedOnly(s => !s)}>{showSkippedOnly ? 'Show All' : 'Show Skipped'}</Button>
               </div>
                 {(showSkippedOnly ? handbookSections.filter((_, idx) => !sectionsRead[idx]) : handbookSections).map((sec, idxRaw) => {
                   const idx = showSkippedOnly ? handbookSections.findIndex(s => s.id === sec.id) : idxRaw;
                   return (
                     <Button
                       key={sec.id}
-                      className={`w-full bg-blue-600 hover:bg-blue-700 text-white ${activeSectionIdx === idx ? 'ring-2 ring-white' : ''}`}
+                      className={`w-full bg-blue-600 hover:bg-blue-700 text-white ${activeSectionIdx === idx ? 'ring-2 ring-white' : ''} flex items-center justify-between gap-2 text-left rounded px-4 py-3 text-sm leading-tight whitespace-normal break-words min-h-[48px] overflow-hidden`}
                       onClick={() => setActiveSectionIdx(idx)}
                     >
-                      <span className="flex items-center justify-between w-full">
-                        <span>{sec.name}</span>
-                        {!sectionsRead[idx] && <span className="text-xs bg-blue-900 px-2 py-0.5 rounded">Skipped</span>}
-                      </span>
+                      <span className="w-full pr-2 break-words">{sec.name}</span>
+                      {!sectionsRead[idx] && (
+                        <Badge className="bg-blue-900 text-white text-[10px] px-3 py-1 leading-none rounded text-center min-w-[64px]">Skipped</Badge>
+                      )}
                     </Button>
                   );
                 })}
             </div>
           </div>
           {/* Content */}
-          <div className="md:col-span-3 bg-purple-800 rounded-lg p-4 overflow-auto">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-bold">{handbookSections[activeSectionIdx].name} ({activeSectionIdx + 1}/{handbookSections.length})</h3>
-              <div className="w-64">
-                <Progress value={handbookProgress} className="h-2 bg-red-200 [&>div]:bg-red-600" />
+          <div className="md:col-span-4 bg-purple-800 rounded-lg p-4 overflow-y-auto overflow-x-hidden relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold">{handbookSections[activeSectionIdx].name} ({activeSectionIdx + 1}/{handbookSections.length})</h3>
+                <div className="w-64">
+                <Progress value={handbookProgress} className="h-2 bg-yellow-200 [&>div]:bg-yellow-400" />
+                </div>
               </div>
-            </div>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-2 pb-40 content-grid">
               {handbookSections[activeSectionIdx].items.map((it, i) => (
-                <div key={i} className="p-3 bg-purple-700 rounded">
-                  <div className="font-semibold">{it.title}</div>
-                  <div className="text-sm">{it.desc}</div>
+                <div key={i} className="p-3 bg-purple-700 rounded w-full">
+                  <div className="font-semibold break-words">{it.title}</div>
+                  <div className="text-sm break-words">{it.desc}</div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex gap-2">
-                <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => setActiveSectionIdx(s => Math.max(0, s - 1))}>Previous</Button>
-                <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => setActiveSectionIdx(s => Math.min(handbookSections.length - 1, s + 1))}>Next Section</Button>
-                <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => toggleSectionRead(activeSectionIdx)}>{sectionsRead[activeSectionIdx] ? 'Mark as Unread' : 'Mark Section Read'}</Button>
+            {/* Stationary footer with all controls */}
+            <div className="sticky bottom-0 left-0 w-full bg-purple-800/95 pt-3 backdrop-blur supports-[backdrop-filter]:bg-purple-800/90">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between border-t border-purple-700 pt-3 px-2 gap-3">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={() => setActiveSectionIdx(s => Math.max(0, s - 1))}>Previous</Button>
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={() => setActiveSectionIdx(s => Math.min(handbookSections.length - 1, s + 1))}>Next Section</Button>
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={() => toggleSectionRead(activeSectionIdx)}>{sectionsRead[activeSectionIdx] ? 'Mark as Unread' : 'Mark Section Read'}</Button>
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={() => {
+                    setSectionsRead(prev => { const n = [...prev]; n[activeSectionIdx] = false; return n; });
+                    setActiveSectionIdx(s => Math.min(handbookSections.length - 1, s + 1));
+                  }}>Skip Chapter</Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={saveHandbookProgress}>Save Progress</Button>
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto" onClick={confirmHandbook}>Confirm Completion</Button>
+                </div>
               </div>
-              <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={saveHandbookProgress}>Save Progress</Button>
-            </div>
-            <div className="mt-6">
-              <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={confirmHandbook}>Confirm Completion</Button>
             </div>
           </div>
         </div>
@@ -450,7 +457,7 @@ export default function OrientationModal({ open, onOpenChange, startExamOnOpen =
 
       {/* Exam Popup Modal */}
       <Dialog open={examOpen} onOpenChange={setExamOpen}>
-        <DialogContent className="max-w-3xl h-[85vh] overflow-hidden bg-[#4b0082] text-white">
+        <DialogContent className="max-w-3xl h-[85vh] overflow-hidden bg-[#4b0082] text-white border border-purple-700 rounded-lg shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-white">Training Exam</DialogTitle>
           </DialogHeader>
@@ -458,7 +465,7 @@ export default function OrientationModal({ open, onOpenChange, startExamOnOpen =
             <div className="text-sm text-white">Answer all 50 questions (A–E). 75% to pass. Save for Later to pause.</div>
             <Button className="bg-yellow-400 text-black hover:bg-yellow-500" onClick={saveExamForLater}>Save for Later</Button>
           </div>
-          <Progress value={examProgress} className="h-2 mb-3 bg-red-200 [&>div]:bg-red-600" />
+          <Progress value={examProgress} className="h-2 mb-3 bg-yellow-200 [&>div]:bg-yellow-400" />
           <div className="space-y-4 h-[64vh] overflow-auto">
             <Card className="p-4 bg-[#5a189a] text-white border-purple-900">
               <div className="font-medium mb-2">{examIdx + 1}. {EXAM_QUESTIONS[examIdx].q}</div>

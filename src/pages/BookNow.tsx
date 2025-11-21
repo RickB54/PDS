@@ -20,6 +20,7 @@ import { generateBookingPDF, uploadToFileManager } from "@/lib/bookingsSync";
 import { useCouponsStore } from "@/store/coupons";
 import { isSupabaseEnabled } from "@/lib/auth";
 import * as bookingsSvc from "@/services/supabase/bookings";
+import api from "@/lib/api.js";
 
 const BookNow = () => {
   const { toast } = useToast();
@@ -52,6 +53,7 @@ const BookNow = () => {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCouponCode, setAppliedCouponCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [couponError, setCouponError] = useState<string>('');
 
   // Live pricing + meta state
   const [savedPricesLive, setSavedPricesLive] = useState<Record<string,string>>({});
@@ -233,6 +235,7 @@ const BookNow = () => {
     try {
       const code = couponCode.trim().toUpperCase();
       if (!code) return;
+      setCouponError('');
       const now = new Date();
       const coupons = useCouponsStore.getState().items.filter(
         (c: any) => c.active && c.usesLeft > 0 && (!c.startDate || new Date(c.startDate) <= now) && (!c.endDate || new Date(c.endDate) >= now)
@@ -241,6 +244,7 @@ const BookNow = () => {
       if (!match) {
         setAppliedDiscount(0);
         setAppliedCouponCode('');
+        setCouponError('This coupon code is not valid');
         return;
       }
       let newTotal = total;
@@ -249,6 +253,7 @@ const BookNow = () => {
       const discount = total - newTotal;
       setAppliedDiscount(discount);
       setAppliedCouponCode(match.code);
+      setCouponError('');
     } catch {}
   };
 
@@ -312,7 +317,7 @@ const BookNow = () => {
       notes: formData.message,
     };
     try {
-      await fetch("http://localhost:6061/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bookingPayload) });
+      await api('/api/bookings', { method: 'POST', body: JSON.stringify(bookingPayload) });
     } catch {}
     try {
       if (isSupabaseEnabled()) {
@@ -351,12 +356,12 @@ const BookNow = () => {
 
     // 3) Hidden admin email
     try {
-      await fetch("http://localhost:6061/api/email/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...bookingPayload, pdfDataUrl }) });
+      await api('/api/email/admin', { method: 'POST', body: JSON.stringify({ ...bookingPayload, pdfDataUrl }) });
     } catch {}
 
     // 4) Customer email
     try {
-      await fetch("http://localhost:6061/api/email/customer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: formData.email, ...bookingPayload, pdfDataUrl }) });
+      await api('/api/email/customer', { method: 'POST', body: JSON.stringify({ to: formData.email, ...bookingPayload, pdfDataUrl }) });
     } catch {}
 
     // 5) Admin toast + sound (local only)
@@ -614,10 +619,11 @@ const BookNow = () => {
                     className="flex-1 px-5 py-4 bg-black border border-zinc-600 rounded-lg text-white focus:border-red-500 focus:outline-none" 
                     value={couponCode} 
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())} 
-                    onKeyDown={(e) => e.key === 'Enter' && applyCoupon()} 
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCoupon(); } }} 
                   /> 
                   <Button 
                     className="bg-red-600 hover:bg-red-700 font-bold px-8" 
+                    type="button"
                     onClick={applyCoupon} 
                   > 
                     Apply 
@@ -628,6 +634,10 @@ const BookNow = () => {
                   <div className="mt-4 text-green-400 font-bold text-lg"> 
                     ✓ {appliedCouponCode} applied — You saved ${appliedDiscount.toFixed(2)}! 
                   </div> 
+                )}
+
+                {couponError && (
+                  <div className="mt-4 text-red-400 font-semibold">{couponError}</div>
                 )}
               </div>
 

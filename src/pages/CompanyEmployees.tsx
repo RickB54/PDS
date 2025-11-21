@@ -190,6 +190,22 @@ const CompanyEmployees = () => {
     doc.save(`Employee_History_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const impersonateEmployee = async (emp: Employee) => {
+    if (!emp) return;
+    try {
+      const syntheticId = `emp_${String(emp.email || emp.name || '').toLowerCase()}`;
+      const res = await api(`/api/users/impersonate/${syntheticId}`, { method: 'POST' });
+      if (res?.ok) {
+        toast({ title: 'Impersonation active', description: `Signed on as ${emp.name}` });
+        setTimeout(() => { window.location.href = '/dashboard'; }, 200);
+      } else {
+        toast({ title: 'Failed to impersonate', description: 'User was not found.' });
+      }
+    } catch {
+      toast({ title: 'Failed to impersonate' });
+    }
+  };
+
   const openAdd = () => {
     setForm({ name: "", email: "", role: "Employee", flatRate: "", bonuses: "", paymentByJob: false, jobRates: {} });
     setModalOpen(true);
@@ -294,9 +310,14 @@ const CompanyEmployees = () => {
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {employees.map((emp) => (
                 <div key={emp.email} className="p-3 rounded border border-border">
-                  <p className="font-medium text-foreground">{emp.name}</p>
-                  <p className="text-sm text-muted-foreground">{emp.email}</p>
-                  <p className="text-xs text-muted-foreground">Role: {emp.role}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-foreground">{emp.name}</p>
+                      <p className="text-sm text-muted-foreground">{emp.email}</p>
+                      <p className="text-xs text-muted-foreground">Role: {emp.role}</p>
+                    </div>
+                    <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => impersonateEmployee(emp)}>Impersonate</Button>
+                  </div>
                 </div>
               ))}
               {employees.length === 0 && (

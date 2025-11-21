@@ -8,10 +8,13 @@ function dbg(label: string, payload?: any) {
   } catch {}
 }
 
-function toIsoCutoff(daysStr: string): string {
-  const n = parseInt(daysStr || '0', 10);
+function toIsoCutoff(daysStr: string | null | undefined): string | null {
+  const raw = String(daysStr ?? '').trim().toLowerCase();
+  if (!raw || raw === 'all') return null;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
   const now = new Date();
-  const cutoff = new Date(now.getTime() - Math.max(0, n) * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
   return cutoff.toISOString();
 }
 
@@ -63,35 +66,73 @@ export async function deleteCustomersOlderThan(days: string): Promise<void> {
   const cutoff = toIsoCutoff(days);
   // Delete dependent rows first to avoid FK violations
   dbg('deleteCustomersOlderThan:start', { cutoff });
-  const bookingsDel = await supabase.from('bookings').delete().lt('date', cutoff);
-  if (bookingsDel.error) { dbg('deleteCustomersOlderThan:bookings:error', bookingsDel.error); throw bookingsDel.error; }
-  dbg('deleteCustomersOlderThan:bookings:count', bookingsDel.count);
+  if (cutoff) {
+    const bookingsDel = await supabase.from('bookings').delete().lt('date', cutoff);
+    if (bookingsDel.error) { dbg('deleteCustomersOlderThan:bookings:error', bookingsDel.error); throw bookingsDel.error; }
+    dbg('deleteCustomersOlderThan:bookings:count', bookingsDel.count);
 
-  const custCreatedDel = await supabase.from('customers').delete().lt('created_at', cutoff);
-  if (custCreatedDel.error) { dbg('deleteCustomersOlderThan:customers(created_at):error', custCreatedDel.error); throw custCreatedDel.error; }
-  dbg('deleteCustomersOlderThan:customers(created_at):count', custCreatedDel.count);
+    const custCreatedDel = await supabase.from('customers').delete().lt('created_at', cutoff);
+    if (custCreatedDel.error) { dbg('deleteCustomersOlderThan:customers(created_at):error', custCreatedDel.error); throw custCreatedDel.error; }
+    dbg('deleteCustomersOlderThan:customers(created_at):count', custCreatedDel.count);
 
-  const custUpdatedDel = await supabase.from('customers').delete().lt('updated_at', cutoff);
-  if (custUpdatedDel.error) { dbg('deleteCustomersOlderThan:customers(updated_at):error', custUpdatedDel.error); throw custUpdatedDel.error; }
-  dbg('deleteCustomersOlderThan:customers(updated_at):count', custUpdatedDel.count);
+    const custUpdatedDel = await supabase.from('customers').delete().lt('updated_at', cutoff);
+    if (custUpdatedDel.error) { dbg('deleteCustomersOlderThan:customers(updated_at):error', custUpdatedDel.error); throw custUpdatedDel.error; }
+    dbg('deleteCustomersOlderThan:customers(updated_at):count', custUpdatedDel.count);
 
-  const appUsersCreatedDel = await supabase.from('app_users').delete().eq('role','customer').lt('created_at', cutoff);
-  if (appUsersCreatedDel.error) { dbg('deleteCustomersOlderThan:app_users(created_at):error', appUsersCreatedDel.error); throw appUsersCreatedDel.error; }
-  dbg('deleteCustomersOlderThan:app_users(created_at):count', appUsersCreatedDel.count);
+    const appUsersCreatedDel = await supabase.from('app_users').delete().eq('role','customer').lt('created_at', cutoff);
+    if (appUsersCreatedDel.error) { dbg('deleteCustomersOlderThan:app_users(created_at):error', appUsersCreatedDel.error); throw appUsersCreatedDel.error; }
+    dbg('deleteCustomersOlderThan:app_users(created_at):count', appUsersCreatedDel.count);
 
-  const appUsersUpdatedDel = await supabase.from('app_users').delete().eq('role','customer').lt('updated_at', cutoff);
-  if (appUsersUpdatedDel.error) { dbg('deleteCustomersOlderThan:app_users(updated_at):error', appUsersUpdatedDel.error); throw appUsersUpdatedDel.error; }
-  dbg('deleteCustomersOlderThan:app_users(updated_at):count', appUsersUpdatedDel.count);
+    const appUsersUpdatedDel = await supabase.from('app_users').delete().eq('role','customer').lt('updated_at', cutoff);
+    if (appUsersUpdatedDel.error) { dbg('deleteCustomersOlderThan:app_users(updated_at):error', appUsersUpdatedDel.error); throw appUsersUpdatedDel.error; }
+    dbg('deleteCustomersOlderThan:app_users(updated_at):count', appUsersUpdatedDel.count);
+  } else {
+    const bookingsDel = await supabase.from('bookings').delete().neq('id', null);
+    if (bookingsDel.error) { dbg('deleteCustomersOlderThan:bookings:error', bookingsDel.error); throw bookingsDel.error; }
+    dbg('deleteCustomersOlderThan:bookings:count(all)', bookingsDel.count);
+
+    const custDel = await supabase.from('customers').delete().neq('id', null);
+    if (custDel.error) { dbg('deleteCustomersOlderThan:customers:error', custDel.error); throw custDel.error; }
+    dbg('deleteCustomersOlderThan:customers:count(all)', custDel.count);
+
+    const auDel = await supabase.from('app_users').delete().eq('role','customer');
+    if (auDel.error) { dbg('deleteCustomersOlderThan:app_users:error', auDel.error); throw auDel.error; }
+    dbg('deleteCustomersOlderThan:app_users:count(all)', auDel.count);
+  }
 
   const audit = await logDelete({ type: 'customers', cutoff });
   dbg('deleteCustomersOlderThan:audit', audit);
+}
+
+// Delete employees (role=employee) based on cutoff or delete all
+export async function deleteEmployeesOlderThan(days: string): Promise<void> {
+  await requireAdminOrEmployee();
+  const cutoff = toIsoCutoff(days);
+  dbg('deleteEmployeesOlderThan:start', { cutoff });
+  if (cutoff) {
+    const createdDel = await supabase.from('app_users').delete().eq('role','employee').lt('created_at', cutoff);
+    if (createdDel.error) { dbg('deleteEmployeesOlderThan:app_users(created_at):error', createdDel.error); throw createdDel.error; }
+    dbg('deleteEmployeesOlderThan:app_users(created_at):count', createdDel.count);
+
+    const updatedDel = await supabase.from('app_users').delete().eq('role','employee').lt('updated_at', cutoff);
+    if (updatedDel.error) { dbg('deleteEmployeesOlderThan:app_users(updated_at):error', updatedDel.error); throw updatedDel.error; }
+    dbg('deleteEmployeesOlderThan:app_users(updated_at):count', updatedDel.count);
+  } else {
+    const delAll = await supabase.from('app_users').delete().eq('role','employee');
+    if (delAll.error) { dbg('deleteEmployeesOlderThan:app_users(all):error', delAll.error); throw delAll.error; }
+    dbg('deleteEmployeesOlderThan:app_users(all):count', delAll.count);
+  }
+  const audit = await logDelete({ type: 'employees', cutoff });
+  dbg('deleteEmployeesOlderThan:audit', audit);
 }
 
 export async function deleteInvoicesOlderThan(days: string): Promise<void> {
   await requireAdminOrEmployee();
   const cutoff = toIsoCutoff(days);
   dbg('deleteInvoicesOlderThan:start', { cutoff });
-  const res = await supabase.from('invoices').delete().lt('created_at', cutoff);
+  const res = cutoff
+    ? await supabase.from('invoices').delete().lt('created_at', cutoff)
+    : await supabase.from('invoices').delete().neq('id', null);
   if (res.error) { dbg('deleteInvoicesOlderThan:error', res.error); throw res.error; }
   dbg('deleteInvoicesOlderThan:count', res.count);
   const audit = await logDelete({ type: 'invoices', cutoff });
@@ -102,10 +143,14 @@ export async function deleteExpensesOlderThan(days: string): Promise<void> {
   await requireAdminOrEmployee();
   const cutoff = toIsoCutoff(days);
   dbg('deleteExpensesOlderThan:start', { cutoff });
-  const exp = await supabase.from('expenses').delete().lt('date', cutoff);
+  const exp = cutoff
+    ? await supabase.from('expenses').delete().lt('date', cutoff)
+    : await supabase.from('expenses').delete().neq('id', null);
   if (exp.error) { dbg('deleteExpensesOlderThan:expenses:error', exp.error); throw exp.error; }
   dbg('deleteExpensesOlderThan:expenses:count', exp.count);
-  const acc = await supabase.from('accounting').delete().lt('created_at', cutoff);
+  const acc = cutoff
+    ? await supabase.from('accounting').delete().lt('created_at', cutoff)
+    : await supabase.from('accounting').delete().neq('id', null);
   if (acc.error) { dbg('deleteExpensesOlderThan:accounting:error', acc.error); throw acc.error; }
   dbg('deleteExpensesOlderThan:accounting:count', acc.count);
   const audit = await logDelete({ type: 'expenses', cutoff });
@@ -116,10 +161,14 @@ export async function deleteInventoryUsageOlderThan(days: string): Promise<void>
   await requireAdminOrEmployee();
   const cutoff = toIsoCutoff(days);
   dbg('deleteInventoryUsageOlderThan:start', { cutoff });
-  const usageDel = await supabase.from('usage').delete().lt('date', cutoff);
+  const usageDel = cutoff
+    ? await supabase.from('usage').delete().lt('date', cutoff)
+    : await supabase.from('usage').delete().neq('id', null);
   if (usageDel.error) { dbg('deleteInventoryUsageOlderThan:usage:error', usageDel.error); throw usageDel.error; }
   dbg('deleteInventoryUsageOlderThan:usage:count', usageDel.count);
-  const invDel = await supabase.from('inventory_records').delete().lt('created_at', cutoff);
+  const invDel = cutoff
+    ? await supabase.from('inventory_records').delete().lt('created_at', cutoff)
+    : await supabase.from('inventory_records').delete().neq('id', null);
   if (invDel.error) { dbg('deleteInventoryUsageOlderThan:inventory_records:error', invDel.error); throw invDel.error; }
   dbg('deleteInventoryUsageOlderThan:inventory_records:count', invDel.count);
   const audit = await logDelete({ type: 'inventory', cutoff });
@@ -147,9 +196,6 @@ export async function deleteEverything(): Promise<void> {
     ['expenses', { col: 'id', op: 'neq', val: null }],
     ['usage', { col: 'id', op: 'neq', val: null }],
     ['inventory_records', { col: 'id', op: 'neq', val: null }],
-    // Pricing tables first to avoid potential FK from bookings/invoices referencing them
-    ['packages', { col: 'id', op: 'neq', val: null }],
-    ['add_ons', { col: 'id', op: 'neq', val: null }],
     // Customers and app_users last
     ['customers', { col: 'id', op: 'neq', val: null }],
   ] as const;
@@ -164,6 +210,10 @@ export async function deleteEverything(): Promise<void> {
   const au = await supabase.from('app_users').delete().eq('role','customer');
   if (au.error) { dbg('deleteEverything:app_users:error', au.error); throw au.error; }
   dbg('deleteEverything:app_users:count', au.count);
+  // Delete employees but preserve admins
+  const emp = await supabase.from('app_users').delete().eq('role','employee');
+  if (emp.error) { dbg('deleteEverything:employees:error', emp.error); throw emp.error; }
+  dbg('deleteEverything:employees:count', emp.count);
   const audit = await logDelete({ type: 'all' });
   dbg('deleteEverything:audit', audit);
 }

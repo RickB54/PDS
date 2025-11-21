@@ -44,7 +44,8 @@ function mapAlert(a: AdminAlert): UIAlert {
       href = "/inventory-control";
       break;
     case "booking_created":
-      href = "/bookings";
+      // Route to Customer Profiles instead of removed Bookings page
+      href = "/search-customer";
       break;
     case "customer_added":
       href = "/search-customer";

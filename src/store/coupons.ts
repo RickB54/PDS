@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { isSupabaseEnabled } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import * as couponsSvc from "@/services/supabase/coupons";
 
 export interface Coupon {
@@ -36,19 +36,34 @@ interface CouponsState {
 export const useCouponsStore = create<CouponsState>((set, get) => ({
   items: load(),
   add: async (c) => {
-    if (isSupabaseEnabled()) {
+    // Optimistic local update first so UI never stalls
+    const itemsLocal = [...get().items, c];
+    save(itemsLocal);
+    set({ items: itemsLocal });
+
+    // Attempt Supabase create in the background when configured
+    if (isSupabaseConfigured()) {
       try {
-        const row = { code: c.code.toUpperCase(), type: c.percent != null ? 'percent' : 'amount', value: Number(c.percent ?? c.amount ?? 0) || 0, usage_limit: c.usesLeft ?? null, active: c.active ?? true, start: c.startDate || null, end: c.endDate || null } as any;
+        const row = {
+          code: c.code.toUpperCase(),
+          type: c.percent != null ? 'percent' : 'amount',
+          value: Number(c.percent ?? c.amount ?? 0) || 0,
+          usage_limit: c.usesLeft ?? null,
+          active: c.active ?? true,
+          start: c.startDate || null,
+          end: c.endDate || null,
+        } as any;
         await couponsSvc.create(row);
+        // Refresh from server to ensure consistency
         await get().refresh();
-        return;
-      } catch {}
+      } catch (err) {
+        console.error("[coupons.store] Supabase create failed; keeping local item", err);
+      }
     }
-    const items = [...get().items, c]; save(items); set({ items });
   },
   update: async (id, patch) => {
     const existing = get().items.find(i => i.id === id);
-    if (isSupabaseEnabled() && existing) {
+    if (isSupabaseConfigured() && existing) {
       try {
         const next = { ...existing, ...patch } as Coupon;
         const row = { code: next.code.toUpperCase(), type: next.percent != null ? 'percent' : 'amount', value: Number(next.percent ?? next.amount ?? 0) || 0, usage_limit: next.usesLeft ?? null, active: next.active ?? true, start: next.startDate || null, end: next.endDate || null } as any;
@@ -61,20 +76,40 @@ export const useCouponsStore = create<CouponsState>((set, get) => ({
   },
   remove: async (id) => {
     const existing = get().items.find(i => i.id === id);
-    if (isSupabaseEnabled() && existing) {
-      try { await couponsSvc.remove(existing.code.toUpperCase()); await get().refresh(); return; } catch {}
+    // Optimistic local removal first
+    const itemsLocal = get().items.filter(i => i.id !== id);
+    save(itemsLocal);
+    set({ items: itemsLocal });
+
+    // Background Supabase sync when configured
+    if (isSupabaseConfigured() && existing) {
+      try {
+        await couponsSvc.remove(existing.code.toUpperCase());
+        await get().refresh();
+      } catch (err) {
+        console.error('[coupons.store] Supabase remove failed; keeping local removal', err);
+      }
     }
-    const items = get().items.filter(i => i.id !== id); save(items); set({ items });
   },
   toggle: async (id) => {
     const existing = get().items.find(i => i.id === id);
-    if (isSupabaseEnabled() && existing) {
-      try { await couponsSvc.toggle(existing.code.toUpperCase(), !existing.active); await get().refresh(); return; } catch {}
+    // Optimistic local toggle first
+    const itemsLocal = get().items.map(i => i.id === id ? { ...i, active: !i.active } : i);
+    save(itemsLocal);
+    set({ items: itemsLocal });
+
+    // Background Supabase sync when configured
+    if (isSupabaseConfigured() && existing) {
+      try {
+        await couponsSvc.toggle(existing.code.toUpperCase(), !existing.active);
+        await get().refresh();
+      } catch (err) {
+        console.error('[coupons.store] Supabase toggle failed; keeping local toggle', err);
+      }
     }
-    const items = get().items.map(i => i.id === id ? { ...i, active: !i.active } : i); save(items); set({ items });
   },
   refresh: async () => {
-    if (isSupabaseEnabled()) {
+    if (isSupabaseConfigured()) {
       try {
         const rows = await couponsSvc.getAll();
         const items = (rows || []).map((r: any) => ({

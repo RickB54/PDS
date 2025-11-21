@@ -12,7 +12,7 @@ import { Download, Upload, Trash2, RotateCcw } from "lucide-react";
 import { postFullSync, postServicesFullSync } from "@/lib/servicesMeta";
 import { exportAllData, downloadBackup, restoreFromJSON, SCHEMA_VERSION } from '@/lib/backup';
 import { isDriveEnabled, uploadJSONToDrive, pickDriveFileAndDownload } from '@/lib/googleDrive';
-import { deleteCustomersOlderThan, deleteInvoicesOlderThan, deleteExpensesOlderThan, deleteInventoryUsageOlderThan, deleteBookingsOlderThan, deleteEverything as deleteAllSupabase } from '@/services/supabase/adminOps';
+import { deleteCustomersOlderThan, deleteInvoicesOlderThan, deleteExpensesOlderThan, deleteInventoryUsageOlderThan, deleteBookingsOlderThan, deleteEmployeesOlderThan, deleteEverything as deleteAllSupabase } from '@/services/supabase/adminOps';
 import localforage from "localforage";
 import EnvironmentHealthModal from '@/components/admin/EnvironmentHealthModal';
 import { restoreDefaults } from '@/lib/restoreDefaults';
@@ -23,7 +23,7 @@ import { savePDFToArchive } from '@/lib/pdfArchive';
 import supabase, { isSupabaseConfigured } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-const Settings = () => {
+  const Settings = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const user = getCurrentUser();
@@ -39,6 +39,69 @@ const Settings = () => {
   const [staticReportData, setStaticReportData] = useState<any | null>(null);
   const [mockDataOpen, setMockDataOpen] = useState(false);
   const [mockReport, setMockReport] = useState<any | null>(null);
+  // Supabase diagnostics block state
+  const [diag, setDiag] = useState<{ authMode: string; urlPresent: boolean; keyPresent: boolean; configured: boolean; uid: string | null; appUserReadable: boolean | null; lastChecked: string }>({
+    authMode: String((import.meta as any)?.env?.VITE_AUTH_MODE || ''),
+    urlPresent: !!(import.meta as any)?.env?.VITE_SUPABASE_URL,
+    keyPresent: !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY,
+    configured: isSupabaseConfigured(),
+    uid: null,
+    appUserReadable: null,
+    lastChecked: new Date().toISOString(),
+  });
+
+  const loadSupabaseDiagnostics = async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id || null;
+      let appUserReadable: boolean | null = null;
+      if (uid) {
+        try {
+          const { data: au, error } = await supabase
+            .from('app_users')
+            .select('id')
+            .eq('id', uid)
+            .maybeSingle();
+          appUserReadable = !!au && !error;
+        } catch {
+          appUserReadable = false;
+        }
+      }
+      setDiag({
+        authMode: String((import.meta as any)?.env?.VITE_AUTH_MODE || ''),
+        urlPresent: !!(import.meta as any)?.env?.VITE_SUPABASE_URL,
+        keyPresent: !!(import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY,
+        configured: isSupabaseConfigured(),
+        uid,
+        appUserReadable,
+        lastChecked: new Date().toISOString(),
+      });
+    } catch {
+      setDiag(d => ({ ...d, configured: isSupabaseConfigured(), lastChecked: new Date().toISOString() }));
+    }
+  };
+
+  useEffect(() => { loadSupabaseDiagnostics(); }, []);
+  // Danger Zone PIN state and session unlock
+  const [dangerPin, setDangerPin] = useState<string>(() => {
+    try {
+      const existing = localStorage.getItem('danger-pin');
+      if (!existing) {
+        localStorage.setItem('danger-pin', '1234');
+        return '1234';
+      }
+      return existing;
+    } catch {
+      return '1234';
+    }
+  });
+  const [pinInput, setPinInput] = useState<string>("");
+  const [dangerUnlocked, setDangerUnlocked] = useState<boolean>(false);
+  const [pinModalOpen, setPinModalOpen] = useState<boolean>(false);
+  const [newPin, setNewPin] = useState<string>("");
+  const [pinError, setPinError] = useState<string>("");
+  const pinRequired = true; // Always require PIN for destructive actions
+  const pinValid = !!dangerPin && !!pinInput && dangerPin === pinInput;
 
   // Redirect non-admin users
   if (user?.role !== 'admin') {
@@ -163,9 +226,9 @@ const Settings = () => {
         await localforage.setItem("customers", filtered);
         // Supabase — customers + app_users (role=customer)
         try {
-          await deleteBookingsOlderThan(String(days || 0));
+          await deleteBookingsOlderThan(hasRange ? String(days) : 'all');
           console.log('[Settings] deleteBookingsOlderThan done');
-          await deleteCustomersOlderThan(String(days || 0));
+          await deleteCustomersOlderThan(hasRange ? String(days) : 'all');
           console.log('[Settings] deleteCustomersOlderThan done');
         } catch (e) {
           console.error('[Settings] customers delete error', e);
@@ -182,7 +245,7 @@ const Settings = () => {
           : [];
         await localforage.setItem("invoices", filtered);
         try {
-          await deleteInvoicesOlderThan(String(days || 0));
+          await deleteInvoicesOlderThan(hasRange ? String(days) : 'all');
           console.log('[Settings] deleteInvoicesOlderThan done');
         } catch (e) {
           console.error('[Settings] invoices delete error', e);
@@ -199,7 +262,7 @@ const Settings = () => {
           : [];
         await localforage.setItem("expenses", filtered);
         try {
-          await deleteExpensesOlderThan(String(days || 0));
+          await deleteExpensesOlderThan(hasRange ? String(days) : 'all');
           console.log('[Settings] deleteExpensesOlderThan done');
         } catch (e) {
           console.error('[Settings] expenses delete error', e);
@@ -222,7 +285,7 @@ const Settings = () => {
           try { await localforage.removeItem("chemicalUsage"); } catch {}
         }
         try {
-          await deleteInventoryUsageOlderThan(String(days || 0));
+          await deleteInventoryUsageOlderThan(hasRange ? String(days) : 'all');
           console.log('[Settings] deleteInventoryUsageOlderThan done');
         } catch (e) {
           console.error('[Settings] inventory delete error', e);
@@ -339,6 +402,23 @@ const Settings = () => {
       
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="space-y-6 animate-fade-in">
+          {/* Supabase Diagnostics */}
+          <Card className="p-4 border-border">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Supabase Diagnostics</h2>
+              <Button variant="outline" size="sm" onClick={loadSupabaseDiagnostics}>Refresh</Button>
+            </div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div><span className="text-muted-foreground">VITE_AUTH_MODE:</span> <span className="font-mono">{diag.authMode || 'unset'}</span></div>
+              <div><span className="text-muted-foreground">URL detected:</span> <span className="font-mono">{diag.urlPresent ? 'yes' : 'no'}</span></div>
+              <div><span className="text-muted-foreground">Anon key detected:</span> <span className="font-mono">{diag.keyPresent ? 'yes' : 'no'}</span></div>
+              <div><span className="text-muted-foreground">isSupabaseConfigured:</span> <span className="font-mono">{String(diag.configured)}</span></div>
+              <div><span className="text-muted-foreground">auth.getUser().uid:</span> <span className="font-mono">{diag.uid || 'none'}</span></div>
+              <div><span className="text-muted-foreground">app_users readable:</span> <span className="font-mono">{diag.appUserReadable === null ? 'unknown' : diag.appUserReadable ? 'yes' : 'no'}</span></div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">Last checked: {new Date(diag.lastChecked).toLocaleString()}</div>
+          </Card>
+
           {/* Backup & Restore */}
           <Card className="p-6 bg-gradient-card border-border">
             <h2 className="text-2xl font-bold text-foreground mb-4">Backup & Restore</h2>
@@ -551,11 +631,19 @@ const Settings = () => {
             </div>
           </Card>
 
-          {/* Danger Zone */}
-          <Card className="p-6 bg-gradient-card border-destructive border-2">
-            <h2 className="text-2xl font-bold text-destructive mb-4">⚠️ Danger Zone</h2>
-            <p className="text-muted-foreground mb-6">These actions cannot be undone. Proceed with caution.</p>
-            
+          {/* Danger Zone — locked overlay / gated by PIN */}
+          <Card
+            className="p-6 bg-gradient-card border-destructive border-2 cursor-pointer"
+            onClick={() => { if (!dangerUnlocked) setPinModalOpen(true); }}
+          >
+            <h2 className="text-2xl font-bold text-destructive mb-2">⚠️ Danger Zone</h2>
+            {!dangerUnlocked && (
+              <div className="text-muted-foreground">
+                <p className="mb-2">Locked — click to unlock with PIN.</p>
+                <div className="text-xs">Default PIN is 1 2 3 4. You can change it in the modal.</div>
+              </div>
+            )}
+            {dangerUnlocked && (
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
@@ -612,6 +700,17 @@ const Settings = () => {
                 </Button>
               </div>
 
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h3 className="font-semibold text-foreground">Delete Employee Records</h3>
+                  <p className="text-sm text-muted-foreground">Remove employee records (admins preserved) for selected period</p>
+                </div>
+                <Button variant="destructive" onClick={() => setDeleteDialog("employees")}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Employees
+                </Button>
+              </div>
+
               <div className="border-t border-destructive/50 pt-4 mt-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
@@ -629,9 +728,86 @@ const Settings = () => {
                 </div>
               </div>
             </div>
+            )}
           </Card>
         </div>
       </main>
+
+      {/* Danger Zone PIN Modal */}
+      <Dialog open={pinModalOpen} onOpenChange={setPinModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Danger Zone PIN</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm">Enter PIN to unlock</Label>
+              <Input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                type="password"
+                placeholder="••••"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0,4))}
+                className="w-32 mt-1"
+              />
+              {pinError && <p className="text-xs text-destructive mt-1">{pinError}</p>}
+              <div className="mt-3">
+                <Button
+                  onClick={() => {
+                    if (pinValid) {
+                      setDangerUnlocked(true);
+                      setPinModalOpen(false);
+                      setPinError('');
+                      toast?.({ title: 'Unlocked', description: 'Danger Zone visible for this session.' });
+                    } else {
+                      setPinError('Incorrect PIN');
+                    }
+                  }}
+                >Unlock</Button>
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <Label className="text-sm">Change PIN (4 digits)</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  type="password"
+                  placeholder="New PIN"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0,4))}
+                  className="w-32"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (!newPin || newPin.length !== 4) {
+                      setPinError('PIN must be 4 digits');
+                      return;
+                    }
+                    setDangerPin(newPin);
+                    try { localStorage.setItem('danger-pin', newPin); } catch {}
+                    setNewPin('');
+                    setPinError('');
+                    toast?.({ title: 'PIN changed', description: 'New PIN saved.' });
+                  }}
+                >Save PIN</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setNewPin('');
+                    try { localStorage.setItem('danger-pin', '1234'); } catch {}
+                    setDangerPin('1234');
+                    toast?.({ title: 'PIN reset', description: 'Default set to 1234.' });
+                  }}
+                >Reset to 1234</Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialog !== null} onOpenChange={() => { setDeleteDialog(null); setTimeRange(""); }}>
         <AlertDialogContent>
@@ -650,6 +826,12 @@ const Settings = () => {
                   ))}
                 </div>
               )}
+              <div className="mt-4">
+                <Label className="text-sm">Enter PIN to confirm</Label>
+                {!dangerPin && (
+                  <p className="text-xs text-amber-500 mt-1">No PIN set. Save a PIN above to enable destructive actions.</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteDialog !== "all" && (
@@ -666,12 +848,27 @@ const Settings = () => {
               <p className="text-xs text-muted-foreground mt-2">Leave blank to delete all records in this group.</p>
             </div>
           )}
+          {/* PIN Entry */}
+          <div className="py-2">
+            {/* Fallback simple input if InputOTP is not desired */}
+            <Input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Enter PIN"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+              className="w-48"
+            />
+            {pinRequired && dangerPin && !pinValid && (
+              <p className="text-xs text-destructive mt-1">PIN does not match.</p>
+            )}
+          </div>
 <AlertDialogFooter className="button-group-responsive">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteData(deleteDialog!)}
               className="bg-destructive"
-              disabled={false}
+              disabled={!dangerPin || !pinValid}
             >
               Yes, Delete {deleteDialog === "all" ? "Everything" : "Data"}
             </AlertDialogAction>
@@ -770,21 +967,76 @@ const Settings = () => {
                 onClick={() => {
                   try {
                     const doc = new jsPDF();
+                    const addLine = (text: string, indent = 0) => {
+                      doc.text(text, 20 + indent, y);
+                      y += 6;
+                      if (y > 270) { doc.addPage(); y = 20; }
+                    };
+
                     doc.setFontSize(18);
                     doc.text('Mock Data Report', 105, 18, { align: 'center' });
                     doc.setFontSize(11);
                     const created = mockReport?.createdAt ? new Date(mockReport.createdAt).toLocaleString() : new Date().toLocaleString();
                     const removed = mockReport?.removedAt ? new Date(mockReport.removedAt).toLocaleString() : '—';
-                    doc.text(`Created: ${created}`, 20, 30);
-                    doc.text(`Removed: ${removed}`, 20, 36);
-                    let y = 44;
+                    let y = 30;
+                    addLine(`Created: ${created}`);
+                    addLine(`Removed: ${removed}`);
+
+                    // Live Progress
+                    if ((mockReport?.progress || []).length > 0) {
+                      doc.setFontSize(12);
+                      addLine('Live Progress:');
+                      doc.setFontSize(11);
+                      (mockReport?.progress || []).forEach((ln: string) => addLine(`- ${ln}`, 6));
+                    }
+
+                    // Summary
+                    if (mockReport?.summary) {
+                      doc.setFontSize(12);
+                      addLine('Summary:');
+                      doc.setFontSize(11);
+                      addLine(`Local Users: ${mockReport.summary.local_users}`, 6);
+                      addLine(`Local Customers: ${mockReport.summary.local_customers}`, 6);
+                      addLine(`Local Employees: ${mockReport.summary.local_employees}`, 6);
+                      addLine(`Chemicals: ${mockReport.summary.chemicals_count}`, 6);
+                      addLine(`Materials: ${mockReport.summary.materials_count}`, 6);
+                      addLine(`Mode: ${mockReport.summary.mode}`, 6);
+                    }
+
+                    // Customers
                     doc.setFontSize(12);
-                    doc.text('Customers:', 20, y); y += 8;
-                    (mockReport?.customers || []).forEach((c:any) => { doc.text(`${c.name} — ${c.email}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
-                    y += 2; doc.text('Employees:', 20, y); y += 8;
-                    (mockReport?.employees || []).forEach((e:any) => { doc.text(`${e.name} — ${e.email}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
-                    y += 2; doc.text('Inventory:', 20, y); y += 8;
-                    (mockReport?.inventory || []).forEach((i:any) => { doc.text(`${i.category}: ${i.name}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
+                    addLine('Customers:');
+                    doc.setFontSize(11);
+                    (mockReport?.customers || []).forEach((c:any) => addLine(`- ${c.name} — ${c.email}`, 6));
+
+                    // Employees
+                    doc.setFontSize(12);
+                    addLine('Employees:');
+                    doc.setFontSize(11);
+                    (mockReport?.employees || []).forEach((e:any) => addLine(`- ${e.name} — ${e.email}`, 6));
+
+                    // Inventory
+                    doc.setFontSize(12);
+                    addLine('Inventory:');
+                    doc.setFontSize(11);
+                    (mockReport?.inventory || []).forEach((i:any) => addLine(`- ${i.category}: ${i.name}`, 6));
+
+                    // Removal status
+                    if (mockReport?.removed) {
+                      doc.setFontSize(12);
+                      addLine('Removal Status:');
+                      doc.setFontSize(11);
+                      addLine(`Mock data removed at ${new Date(mockReport.removedAt).toLocaleString()}`, 6);
+                    }
+
+                    // Errors
+                    if ((mockReport?.errors || []).length > 0) {
+                      doc.setFontSize(12);
+                      addLine('Issues detected:');
+                      doc.setFontSize(11);
+                      (mockReport.errors || []).forEach((err: any) => addLine(`- ${String(err)}`, 6));
+                    }
+
                     const dataUrl = doc.output('dataurlstring');
                     const today = new Date().toISOString().split('T')[0];
                     const fileName = `MockData_Report_${today}.pdf`;
@@ -1146,3 +1398,95 @@ export default Settings;
               >Remove Static Mock Data (local only — no Supabase)</Button>
             </div>
           </Card>
+    const deleteData = async (kind: string) => {
+      try {
+        const daysNum = parseInt(timeRange || '');
+        const hasRange = Number.isFinite(daysNum) && daysNum > 0;
+        const daysArg = hasRange ? String(daysNum) : 'all';
+        if (kind === 'customers') {
+          await deleteCustomersOlderThan(daysArg);
+          const customersLF = (await localforage.getItem<any[]>('customers')) || [];
+          const cutoffDate = hasRange ? new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000) : null;
+          const filtered = cutoffDate ? customersLF.filter((c:any) => {
+            const d = new Date(c?.created_at || c?.createdAt || c?.updated_at || c?.updatedAt || 0);
+            return !c || !d || d >= cutoffDate;
+          }) : [];
+          if (cutoffDate) {
+            await localforage.setItem('customers', filtered);
+          } else {
+            await localforage.removeItem('customers');
+          }
+          toast?.({ title: 'Customers deleted', description: `Scope: ${daysArg}` });
+        } else if (kind === 'invoices') {
+          await deleteInvoicesOlderThan(daysArg);
+          const invoicesLF = (await localforage.getItem<any[]>('invoices')) || [];
+          const cutoffDate = hasRange ? new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000) : null;
+          const filtered = cutoffDate ? invoicesLF.filter((inv:any) => {
+            const d = new Date(inv?.created_at || inv?.date || inv?.updated_at || 0);
+            return !inv || !d || d >= cutoffDate;
+          }) : [];
+          if (cutoffDate) {
+            await localforage.setItem('invoices', filtered);
+          } else {
+            await localforage.removeItem('invoices');
+          }
+          toast?.({ title: 'Invoices deleted', description: `Scope: ${daysArg}` });
+        } else if (kind === 'accounting') {
+          await deleteExpensesOlderThan(daysArg);
+          const expensesLF = (await localforage.getItem<any[]>('expenses')) || [];
+          const cutoffDate = hasRange ? new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000) : null;
+          const filtered = cutoffDate ? expensesLF.filter((e:any) => {
+            const d = new Date(e?.date || e?.created_at || e?.updated_at || 0);
+            return !e || !d || d >= cutoffDate;
+          }) : [];
+          if (cutoffDate) {
+            await localforage.setItem('expenses', filtered);
+          } else {
+            await localforage.removeItem('expenses');
+          }
+          toast?.({ title: 'Accounting records deleted', description: `Scope: ${daysArg}` });
+        } else if (kind === 'inventory') {
+          await deleteInventoryUsageOlderThan(daysArg);
+          const usageLF = (await localforage.getItem<any[]>('usage')) || [];
+          const cutoffDate = hasRange ? new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000) : null;
+          const filtered = cutoffDate ? usageLF.filter((u:any) => {
+            const d = new Date(u?.date || u?.created_at || u?.updated_at || 0);
+            return !u || !d || d >= cutoffDate;
+          }) : [];
+          if (cutoffDate) {
+            await localforage.setItem('usage', filtered);
+          } else {
+            await localforage.removeItem('usage');
+          }
+          toast?.({ title: 'Inventory usage deleted', description: `Scope: ${daysArg}` });
+        } else if (kind === 'employees') {
+          await deleteEmployeesOlderThan(daysArg);
+          const empsLF = (await localforage.getItem<any[]>('company-employees')) || [];
+          const cutoffDate = hasRange ? new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000) : null;
+          const filtered = cutoffDate ? empsLF.filter((e:any) => {
+            const d = new Date(e?.created_at || e?.updated_at || 0);
+            return !e || !d || d >= cutoffDate;
+          }) : [];
+          if (cutoffDate) {
+            await localforage.setItem('company-employees', filtered);
+          } else {
+            await localforage.removeItem('company-employees');
+          }
+          window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'employees' } }));
+          toast?.({ title: 'Employees deleted', description: `Scope: ${daysArg} (admins preserved)` });
+        } else if (kind === 'all') {
+          await deleteAllSupabase();
+          const preservedKeys = ['training_exam_progress','training_exam_schedule','employee_training_certified','handbook_progress','handbook_start_at','user','company-settings','packages','add-ons','services-meta'];
+          const deletedKeys = [ 'users','customers','invoices','expenses','usage','inventory_records','bookings','company-employees','pdf-archive','checklists','jobs-completed' ];
+          for (const k of deletedKeys) { try { await localforage.removeItem(k); } catch {} }
+          setSummaryData({ preserved: preservedKeys, deleted: deletedKeys, note: 'Supabase configuration and schema preserved; employees removed except admins.' });
+          setSummaryOpen(true);
+        }
+      } catch (e:any) {
+        console.error('[Settings] deleteData failed', e);
+        toast?.({ title: 'Delete failed', description: e?.message || 'Error during deletion', variant: 'destructive' });
+      } finally {
+        setDeleteDialog(null);
+        setTimeRange('');
+      }
+    };

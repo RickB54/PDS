@@ -45,7 +45,6 @@ import localforage from "localforage";
 import HelpModal from "@/components/help/HelpModal";
 import { getCurrentUser } from "@/lib/auth";
 import { useAlertsStore } from "@/store/alerts";
-import { useBookingsStore } from "@/store/bookings";
 import { isViewed } from "@/lib/viewTracker";
 import { getInvoices, upsertCustomer } from "@/lib/db";
 import { insertStaticMockBasic, removeStaticMockBasic } from "@/lib/staticMock";
@@ -56,15 +55,16 @@ import { notify } from "@/store/alerts";
 import CustomerModal from "@/components/customers/CustomerModal";
 import OrientationModal from "@/components/training/OrientationModal";
 import jsPDF from 'jspdf';
-import { savePDFToArchive } from '@/lib/pdfArchive';
+  import { savePDFToArchive } from '@/lib/pdfArchive';
+  import { useBookingsStore } from "@/store/bookings";
 
 type Job = { finishedAt: string; totalRevenue: number; status: string };
 
 // Persistent menu visibility settings
 const MENU_STORAGE_KEY = 'hiddenMenuItems';
-const MENU_REGISTRY: { key: string; label: string }[] = [
-  { key: 'start-job', label: 'Start a Job' },
-  { key: 'bookings', label: 'Bookings' },
+  const MENU_REGISTRY: { key: string; label: string }[] = [
+    { key: 'start-job', label: 'Start a Job' },
+  // { key: 'bookings', label: 'Bookings' }, // removed
   { key: 'search-customer', label: 'Customer Profiles' },
   { key: 'invoicing', label: 'Invoicing' },
   { key: 'accounting', label: 'Accounting' },
@@ -78,9 +78,10 @@ const MENU_REGISTRY: { key: string; label: string }[] = [
   { key: 'settings', label: 'Settings' },
   { key: 'discount-coupons', label: 'Discount Coupons' },
   { key: 'training-manual', label: 'Quick Detailing Manual' },
-  { key: 'company-employees', label: 'Company Employees' },
-  { key: 'jobs-completed-admin', label: 'Jobs Completed by Admin' },
-];
+    { key: 'company-employees', label: 'Company Employees' },
+    { key: 'jobs-completed-admin', label: 'Jobs Completed by Admin' },
+    { key: 'book-new-job', label: 'Book A New Job' },
+  ];
 
 function getHiddenMenuItems(): string[] {
   try {
@@ -126,7 +127,6 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { latest, unreadCount, markRead, dismiss, dismissAll, refresh } = useAlertsStore();
   const alertsAll = useAlertsStore((s) => s.alerts);
-  const { items } = useBookingsStore();
   const [newBookingsToday, setNewBookingsToday] = useState<number>(0);
   const [unpaidInvoices, setUnpaidInvoices] = useState<number>(0);
   const [criticalInventory, setCriticalInventory] = useState<number>(0);
@@ -185,6 +185,8 @@ export default function AdminDashboard() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [mockDataOpen, setMockDataOpen] = useState(false);
   const [mockReport, setMockReport] = useState<any | null>(null);
+  // Bookings list for dashboard metrics (e.g., today's new bookings)
+  const items = useBookingsStore((s) => s.items);
 
   // Removed auto-open for Website Administration to decouple from Admin Dashboard
 
@@ -465,7 +467,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const recalc = () => {
       const todayStr = new Date().toDateString();
-      setNewBookingsToday(items.filter(b => new Date(b.date).toDateString() === todayStr && !isViewed("booking", b.id)).length);
+      setNewBookingsToday((Array.isArray(items) ? items : []).filter(b => new Date(b.date).toDateString() === todayStr && !isViewed("booking", b.id)).length);
       // Recompute inventory across materials + chemicals
       Promise.all([
         localforage.getItem<any[]>("materials"),
@@ -598,7 +600,7 @@ export default function AdminDashboard() {
                 </Link>
                 <button type="button" onClick={() => setOrientationOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-orange-600 text-orange-600 hover:bg-orange-600/10">
                   <ClipboardCheck className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Welcome To Prime Detail Solutions!</span>
+                  <span>Employee Handbook</span>
                 </button>
                 {/* Place Take Exam directly under Open Entire Exam without disturbing layout */}
                 <div className="w-full"></div>
@@ -658,9 +660,16 @@ export default function AdminDashboard() {
                 {!isMenuHidden('jobs-completed-admin') && (
                   <RedBox accent="orange" title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
                 )}
-                {!isMenuHidden('bookings') && (
-                  <RedBox accent="orange" title="New Booking" subtitle={`New today: ${newBookingsToday}`} href="/bookings" Icon={CalendarDays} badgeCount={Math.max(newBookingsToday, badgeByType('booking_created'))} />
+                {!isMenuHidden('book-new-job') && (
+                  <RedBox
+                    accent="orange"
+                    title="Book A New Job"
+                    subtitle="Lead to Book Now page"
+                    href="/book-now"
+                    Icon={ClipboardCheck}
+                  />
                 )}
+                {/* New Booking card removed */}
               </div>
             </Card>
           </Card>
@@ -866,37 +875,92 @@ export default function AdminDashboard() {
                     }
                   }}
                 >Remove Mock Data</Button>
-                <Button
-                  variant="secondary"
-                  className="border-red-700 text-white bg-red-700 hover:bg-red-800"
-                  onClick={() => {
-                    try {
-                      const doc = new jsPDF();
-                      doc.setFontSize(18);
-                      doc.text('Mock Data Report', 105, 18, { align: 'center' });
-                      doc.setFontSize(11);
-                      const created = mockReport?.createdAt ? new Date(mockReport.createdAt).toLocaleString() : new Date().toLocaleString();
-                      const removed = mockReport?.removedAt ? new Date(mockReport.removedAt).toLocaleString() : '—';
-                      doc.text(`Created: ${created}`, 20, 30);
-                      doc.text(`Removed: ${removed}`, 20, 36);
-                      let y = 44;
+              <Button
+                variant="secondary"
+                className="border-red-700 text-white bg-red-700 hover:bg-red-800"
+                onClick={() => {
+                  try {
+                    const doc = new jsPDF();
+                    let y = 30;
+                    const addLine = (text: string, indent = 0) => {
+                      doc.text(text, 20 + indent, y);
+                      y += 6;
+                      if (y > 270) { doc.addPage(); y = 20; }
+                    };
+
+                    doc.setFontSize(18);
+                    doc.text('Mock Data Report', 105, 18, { align: 'center' });
+                    doc.setFontSize(11);
+                    const created = mockReport?.createdAt ? new Date(mockReport.createdAt).toLocaleString() : new Date().toLocaleString();
+                    const removed = mockReport?.removedAt ? new Date(mockReport.removedAt).toLocaleString() : '—';
+                    addLine(`Created: ${created}`);
+                    addLine(`Removed: ${removed}`);
+
+                    // Live Progress
+                    if ((mockReport?.progress || []).length > 0) {
                       doc.setFontSize(12);
-                      doc.text('Customers:', 20, y); y += 8;
-                      (mockReport?.customers || []).forEach((c:any) => { doc.text(`${c.name} — ${c.email}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
-                      y += 2; doc.text('Employees:', 20, y); y += 8;
-                      (mockReport?.employees || []).forEach((e:any) => { doc.text(`${e.name} — ${e.email}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
-                      y += 2; doc.text('Inventory:', 20, y); y += 8;
-                      (mockReport?.inventory || []).forEach((i:any) => { doc.text(`${i.category}: ${i.name}`, 26, y); y += 6; if (y > 270) { doc.addPage(); y = 20; } });
-                      const dataUrl = doc.output('dataurlstring');
-                      const today = new Date().toISOString().split('T')[0];
-                      const fileName = `MockData_Report_${today}.pdf`;
-                      savePDFToArchive('Mock Data' as any, 'Admin', `mock-data-${Date.now()}`, dataUrl, { fileName, path: 'Mock Data/' });
-                      toast?.({ title: 'Saved to File Manager', description: 'Mock Data Report archived.' });
-                    } catch (e:any) {
-                      toast?.({ title: 'Save Failed', description: e?.message || 'Could not generate PDF', variant: 'destructive' });
+                      addLine('Live Progress:');
+                      doc.setFontSize(11);
+                      (mockReport?.progress || []).forEach((ln: string) => addLine(`- ${ln}`, 6));
                     }
-                  }}
-                >Save to PDF</Button>
+
+                    // Summary
+                    if (mockReport?.summary) {
+                      doc.setFontSize(12);
+                      addLine('Summary:');
+                      doc.setFontSize(11);
+                      addLine(`Local Users: ${mockReport.summary.local_users}`, 6);
+                      addLine(`Local Customers: ${mockReport.summary.local_customers}`, 6);
+                      addLine(`Local Employees: ${mockReport.summary.local_employees}`, 6);
+                      addLine(`Chemicals: ${mockReport.summary.chemicals_count}`, 6);
+                      addLine(`Materials: ${mockReport.summary.materials_count}`, 6);
+                      addLine(`Mode: ${mockReport.summary.mode}`, 6);
+                    }
+
+                    // Customers
+                    doc.setFontSize(12);
+                    addLine('Customers:');
+                    doc.setFontSize(11);
+                    (mockReport?.customers || []).forEach((c:any) => addLine(`- ${c.name} — ${c.email}`, 6));
+
+                    // Employees
+                    doc.setFontSize(12);
+                    addLine('Employees:');
+                    doc.setFontSize(11);
+                    (mockReport?.employees || []).forEach((e:any) => addLine(`- ${e.name} — ${e.email}`, 6));
+
+                    // Inventory
+                    doc.setFontSize(12);
+                    addLine('Inventory:');
+                    doc.setFontSize(11);
+                    (mockReport?.inventory || []).forEach((i:any) => addLine(`- ${i.category}: ${i.name}`, 6));
+
+                    // Removal status
+                    if (mockReport?.removed) {
+                      doc.setFontSize(12);
+                      addLine('Removal Status:');
+                      doc.setFontSize(11);
+                      addLine(`Mock data removed at ${new Date(mockReport.removedAt).toLocaleString()}`, 6);
+                    }
+
+                    // Errors
+                    if ((mockReport?.errors || []).length > 0) {
+                      doc.setFontSize(12);
+                      addLine('Issues detected:');
+                      doc.setFontSize(11);
+                      (mockReport.errors || []).forEach((err: any) => addLine(`- ${String(err)}`, 6));
+                    }
+
+                    const dataUrl = doc.output('dataurlstring');
+                    const today = new Date().toISOString().split('T')[0];
+                    const fileName = `MockData_Report_${today}.pdf`;
+                    savePDFToArchive('Mock Data' as any, 'Admin', `mock-data-${Date.now()}`, dataUrl, { fileName, path: 'Mock Data/' });
+                    toast?.({ title: 'Saved to File Manager', description: 'Mock Data Report archived.' });
+                  } catch (e:any) {
+                    toast?.({ title: 'Save Failed', description: e?.message || 'Could not generate PDF', variant: 'destructive' });
+                  }
+                }}
+              >Save to PDF</Button>
               </div>
 
               {mockReport?.progress && (

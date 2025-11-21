@@ -7,24 +7,44 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCouponsStore, Coupon } from "@/store/coupons";
 import { TicketPercent } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DiscountCoupons() {
+  const { toast } = useToast();
   const { items, add, update, remove, toggle } = useCouponsStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", title: "", type: "percent", value: 10, usesLeft: 100 } as any);
 
-  const createCoupon = () => {
+  const createCoupon = async () => {
+    console.log('[DiscountCoupons] Create button clicked', { form });
+    const code = String(form.code || '').trim().toUpperCase();
+    const val = Number(form.value);
+    if (!code) {
+      toast({ title: "Code required", description: "Enter a coupon code", variant: "destructive" });
+      return;
+    }
+    if (!val || val <= 0) {
+      toast({ title: "Value required", description: "Enter a value greater than 0", variant: "destructive" });
+      return;
+    }
     const c: Coupon = {
       id: `coupon_${Date.now()}`,
-      code: form.code.toUpperCase(),
-      title: form.title,
-      percent: form.type === "percent" ? Number(form.value) : undefined,
-      amount: form.type === "amount" ? Number(form.value) : undefined,
+      code,
+      title: String(form.title || code),
+      percent: form.type === "percent" ? val : undefined,
+      amount: form.type === "amount" ? val : undefined,
       usesLeft: Number(form.usesLeft) || 0,
       active: true,
     };
-    add(c);
-    setOpen(false);
+    try {
+      // Do not allow any upstream stall to block UX; add is optimistic now
+      add(c);
+      setOpen(false);
+      toast({ title: "Coupon created", description: `${code} is now active` });
+    } catch (err) {
+      console.error('[DiscountCoupons] add failed', err);
+      toast({ title: "Could not save coupon", description: "Please try again", variant: "destructive" });
+    }
   };
 
   return (
@@ -36,7 +56,7 @@ export default function DiscountCoupons() {
             <TicketPercent className="h-5 w-5 text-yellow-500" />
             <h2 className="text-lg font-semibold">Create New Coupon</h2>
           </div>
-          <Button onClick={() => setOpen(true)}>Create Coupon</Button>
+          <Button type="button" onClick={() => setOpen(true)}>Create Coupon</Button>
         </Card>
 
         <Card className="p-4">
@@ -108,7 +128,7 @@ export default function DiscountCoupons() {
                   <Input type="number" value={form.usesLeft} onChange={e => setForm({ ...form, usesLeft: Number(e.target.value) })} />
                 </div>
               </div>
-              <Button onClick={createCoupon} className="w-full">Create Coupon</Button>
+              <Button type="button" onClick={createCoupon} className="w-full">Create Coupon</Button>
             </div>
           </DialogContent>
         </Dialog>

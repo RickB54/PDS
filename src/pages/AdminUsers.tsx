@@ -54,12 +54,21 @@ export default function AdminUsers() {
 
   const onChangeRole = async (id: string, role: Role) => {
     setSavingId(id);
-    const { error } = await supabase.from("app_users").update({ role }).eq("id", id);
-    if (error) {
-      toast({ title: "Update failed", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      const { error } = await supabase.from("app_users").update({ role }).eq("id", id);
+      if (error) throw error;
       toast({ title: "Role updated", description: `User role set to ${role}` });
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
+    } catch (e: any) {
+      // Fallback to edge function with service role if RLS blocks this update
+      try {
+        const { data, error } = await supabase.functions.invoke('bootstrap-role', { body: { userId: id, role } });
+        if (error || !data?.ok) throw error || new Error('bootstrap_failed');
+        toast({ title: "Role updated (admin)" });
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
+      } catch (err: any) {
+        toast({ title: "Update failed", description: String(err?.message || e?.message || 'role_update_failed'), variant: "destructive" });
+      }
     }
     setSavingId(null);
   };

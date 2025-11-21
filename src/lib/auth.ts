@@ -212,7 +212,20 @@ export async function finalizeSupabaseSession(): Promise<User | null> {
     try { await supabase.auth.updateUser({ data: { role } }); } catch {}
     // Ensure app_users has a row and role persisted on every session finalize
     try {
-      await supabase.from('app_users').upsert({ id: u.id, email, role, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+      const { data: existsRow } = await supabase.from('app_users').select('id').eq('id', u.id).maybeSingle();
+      if (!existsRow) {
+        // Try anon upsert first (works if RLS allows)
+        const { error: upErr } = await supabase
+          .from('app_users')
+          .upsert({ id: u.id, email, role, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+        if (upErr) {
+          // Fall back to service role edge function to bootstrap the row
+          try { await supabase.functions.invoke('bootstrap-role', { body: { userId: u.id, email, role } }); } catch {}
+        }
+      } else {
+        // Keep role in sync for existing rows if needed
+        try { await supabase.from('app_users').update({ role, updated_at: new Date().toISOString() }).eq('id', u.id); } catch {}
+      }
     } catch {}
     try { localStorage.setItem('session_user_id', u.id); } catch {}
     try { await getSupabaseCustomerProfile(u.id); } catch {}
@@ -306,7 +319,15 @@ export async function loginSupabase(email: string, password: string): Promise<Us
     // Upsert app_users role if missing; helps admin/employee assignment
     if (userId) {
       try {
-        await supabase.from('app_users').upsert({ id: userId, email: emailResolved, role, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+        const { data: existsRow } = await supabase.from('app_users').select('id').eq('id', userId).maybeSingle();
+        if (!existsRow) {
+          const { error: upErr } = await supabase
+            .from('app_users')
+            .upsert({ id: userId, email: emailResolved, role, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+          if (upErr) {
+            try { await supabase.functions.invoke('bootstrap-role', { body: { userId, email: emailResolved, role } }); } catch {}
+          }
+        }
       } catch {}
     }
     if (userId) { try { localStorage.setItem('session_user_id', userId); } catch {} }
@@ -325,8 +346,17 @@ export async function signupSupabase(email: string, password: string, name?: str
     const userId = data.user?.id;
     if (userId) {
       try {
-        await supabase.from('app_users').upsert({ id: userId, email, role: 'customer', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'id' });
-        await supabase.from('customers').upsert({ id: userId, email, name: name || '' , created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'id' });
+        const { data: existsRow } = await supabase.from('app_users').select('id').eq('id', userId).maybeSingle();
+        if (!existsRow) {
+          const { error: upErr } = await supabase
+            .from('app_users')
+            .upsert({ id: userId, email, role: 'customer', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'id' });
+          if (upErr) {
+            try { await supabase.functions.invoke('bootstrap-role', { body: { userId, email, role: 'customer' } }); } catch {}
+          }
+        }
+        // Customers profile best-effort
+        try { await supabase.from('customers').upsert({ id: userId, email, name: name || '' , created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'id' }); } catch {}
       } catch {}
       // Persist a default customer role claim into auth.user_metadata
       try { await supabase.auth.updateUser({ data: { role: 'customer' } }); } catch {}

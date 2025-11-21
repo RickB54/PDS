@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { getCurrentUser } from "@/lib/auth";
 import { useTasksStore, parseTaskInput, Task, TaskPriority, TaskStatus } from "@/store/tasks";
 import api from "@/lib/api";
+import localforage from "localforage";
+import { pushAdminAlert } from "@/lib/adminAlerts";
+import { pushEmployeeNotification } from "@/lib/employeeNotifications";
 import { CalendarDays, CheckSquare, Trash2, Edit, Clock, User, Paperclip, ListChecks, Filter, GripVertical, Template } from "lucide-react";
 
 export default function Tasks() {
@@ -25,6 +28,9 @@ export default function Tasks() {
   const [employees, setEmployees] = useState<any[]>([]);
   const isAdmin = user?.role === 'admin';
   const isEmployee = user?.role === 'employee';
+  // Team Communication state
+  const [chatMessages, setChatMessages] = useState<{ id: string; author: string; text: string; at: string }[]>([]);
+  const [newChatText, setNewChatText] = useState("");
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
@@ -33,6 +39,16 @@ export default function Tasks() {
         const list = await api('/api/users/employees', { method: 'GET' });
         setEmployees(Array.isArray(list) ? list : []);
       } catch { setEmployees([]); }
+    })();
+  }, []);
+  useEffect(() => {
+    // Load team chat history
+    (async () => {
+      try {
+        const raw = await localforage.getItem('task_chat');
+        const arr = Array.isArray(raw) ? raw as any[] : [];
+        setChatMessages(arr.map(m => ({ id: m.id, author: m.author, text: m.text, at: m.at })));
+      } catch { setChatMessages([]); }
     })();
   }, []);
   useEffect(() => {
@@ -395,6 +411,42 @@ export default function Tasks() {
           <DialogHeader><DialogTitle>Quick Actions</DialogTitle></DialogHeader>
         </DialogContent>
       </Dialog>
+      {/* Team Communication Panel (global chat for Tasks) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 mt-4">
+        <div></div>
+        <Card className="p-4 bg-[#0f0f13] border border-zinc-800 rounded-xl lg:sticky lg:top-[520px] max-w-full">
+          <div className="font-semibold mb-2">Team Communication</div>
+          <div className="space-y-2 max-h-[240px] overflow-auto pr-1">
+            {chatMessages.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No messages yet. Start the conversation.</div>
+            ) : chatMessages.map(m => (
+              <div key={m.id} className="border border-zinc-800 rounded p-2">
+                <div className="text-xs text-muted-foreground">{new Date(m.at).toLocaleString()} • {m.author}</div>
+                <div className="text-sm">{m.text}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Input placeholder="Type a message to the team" value={newChatText} onChange={(e)=>setNewChatText(e.target.value)} />
+            <Button variant="secondary" onClick={async ()=>{
+              const text = newChatText.trim(); if (!text) return;
+              const msg = { id: `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, author: String(user?.name || user?.email || 'User'), text, at: new Date().toISOString() };
+              const next = [...chatMessages, msg];
+              setChatMessages(next);
+              setNewChatText('');
+              try { await localforage.setItem('task_chat', next); } catch {}
+              // Notify admins and assignees broadly
+              try { pushAdminAlert('todo_chat' as any, `New team message`, String(user?.email || user?.name || 'user'), { text }); } catch {}
+              try {
+                (employees || []).forEach(e => {
+                  const key = String(e.email || e.name || '').trim();
+                  if (key && key !== String(user?.email || user?.name || '')) pushEmployeeNotification(key, `Team Message from ${String(user?.name || 'User')}`, { text });
+                });
+              } catch {}
+            }}>Send</Button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

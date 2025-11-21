@@ -9,6 +9,7 @@ import { useCartStore } from "@/store/cart";
 import { useToast } from "@/hooks/use-toast";
 import { getInvoices, upsertInvoice } from "@/lib/db";
 import { upsertReceivable } from "@/lib/receivables";
+import { getCurrentUser } from "@/lib/auth";
 
 interface Invoice {
   id?: string;
@@ -27,6 +28,7 @@ const Checkout = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [prepayAmount, setPrepayAmount] = useState<string>("");
+  const user = getCurrentUser();
 
   useEffect(() => {
     (async () => {
@@ -52,10 +54,27 @@ const Checkout = () => {
       return;
     }
     try {
+      // Build dynamic Stripe line items from cart, selected invoices, and optional prepayment
+      const lineItems: Array<{ name?: string; amount?: number; quantity?: number }> = [];
+      // Cart items
+      for (const i of items) {
+        const name = i.vehicleType ? `${i.name} · ${i.vehicleType}` : i.name;
+        lineItems.push({ name, amount: i.price, quantity: i.quantity });
+      }
+      // Selected invoices
+      for (const inv of invoices.filter((i) => selectedInvoiceIds.includes(String(i.id)))) {
+        const label = inv.invoiceNumber ? `Invoice #${inv.invoiceNumber}` : `Invoice ${String(inv.id)}`;
+        lineItems.push({ name: label, amount: inv.total, quantity: 1 });
+      }
+      // Prepayment
+      if (prepay > 0) {
+        lineItems.push({ name: "Prepayment", amount: prepay, quantity: 1 });
+      }
+
       const res = await fetch("/functions/v1/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "payment" })
+        body: JSON.stringify({ mode: "payment", lineItems, customerEmail: user?.email })
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();

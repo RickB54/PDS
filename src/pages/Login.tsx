@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { isSupabaseEnabled, loginSupabase, signupSupabase, finalizeSupabaseSession, quickAccessLogin } from "@/lib/auth";
+import { isSupabaseEnabled, signupSupabase, finalizeSupabaseSession, quickAccessLogin } from "@/lib/auth";
 import logo from "@/assets/logo-3inch.png";
 import { useToast } from "@/hooks/use-toast";
 import supabase from "@/lib/supabase";
@@ -66,20 +66,13 @@ const Login = () => {
 
   const isValidEmail = (v: string) => /.+@.+\..+/.test(v.trim());
 
-  const classifyLoginFailure = async (emailAddr: string): Promise<'invalid_email' | 'incorrect_password' | 'unknown'> => {
+  const classifyLoginFailure = (emailAddr: string): 'invalid_email' | 'incorrect_password' | 'unknown' => {
     if (!isValidEmail(emailAddr)) return 'invalid_email';
-    try {
-      const { data, error } = await supabase.from('app_users').select('id').eq('email', emailAddr.trim().toLowerCase()).limit(1);
-      if (error) return 'unknown';
-      if (!data || data.length === 0) return 'invalid_email';
-      return 'incorrect_password';
-    } catch {
-      return 'unknown';
-    }
+    return 'incorrect_password';
   };
 
   const handleSupabaseLogin = async () => {
-    console.info('[Login] Sign In clicked');
+    console.log('1. Sign in button clicked');
     if (!email || !password) {
       console.warn('[Login] Missing email or password');
       toast({ title: 'Missing credentials', description: 'Please enter email and password.', variant: 'destructive' });
@@ -91,53 +84,83 @@ const Login = () => {
     }
     setLoadingSignIn(true);
     try {
-      // Use the original helper that previously worked, but guard against stalls
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
-      const mapped = await Promise.race([
-        loginSupabase(email.trim().toLowerCase(), password),
-        timeout,
-      ]);
-      // Fallback: if a session exists but mapping stalled, finalize and proceed
-      if (!mapped) {
-        try {
-          const { data } = await supabase.auth.getUser();
-          if (data?.user) {
-            const finalized = await finalizeSupabaseSession();
-            if (finalized) {
-              setLoadingSignIn(false);
-              navigate(
-                finalized.role === 'admin' ? '/admin-dashboard' :
-                finalized.role === 'employee' ? '/employee-dashboard' :
-                '/customer-dashboard',
-                { replace: true }
-              );
-              return;
-            }
-          }
-        } catch {}
-      }
-      setLoadingSignIn(false);
-      if (mapped) {
-        navigate(
-          mapped.role === 'admin' ? '/admin-dashboard' :
-          mapped.role === 'employee' ? '/employee-dashboard' :
-          '/customer-dashboard',
-          { replace: true }
-        );
+      const emailTrimmed = email.trim().toLowerCase();
+      console.log('2. Form submitted with email:', emailTrimmed);
+      console.log('3. Calling Supabase auth...');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailTrimmed,
+        password,
+      });
+      console.log('4. Supabase response:', data, error);
+      // Extra auth logging for diagnostics
+      console.log('🔐 AUTH:', !error && !!data?.user);
+      console.log('  User ID:', data?.user?.id);
+      console.log('  Role:', (data?.user?.user_metadata as any)?.role);
+      console.log('  Error:', error);
+      if (error) {
+        console.error('Supabase auth error:', error);
+        const failure = await classifyLoginFailure(emailTrimmed);
+        if (failure === 'invalid_email') {
+          toast({ title: 'Invalid user id / email', description: 'Please check your email address and try again.', variant: 'destructive' });
+        } else if (failure === 'incorrect_password') {
+          toast({ title: 'Incorrect Password', description: 'The email or password is incorrect.', variant: 'destructive' });
+        } else {
+          toast({ title: 'Sign in failed', description: error.message || 'Please try again.', variant: 'destructive' });
+        }
+        // Ensure we exit loading state even on error
+        setLoadingSignIn(false);
         return;
       }
-      // If sign-in failed, classify to show precise error
-      const failure = await classifyLoginFailure(email);
-      if (failure === 'invalid_email') {
-        toast({ title: 'Invalid user id / email', description: 'Please check your email address and try again.', variant: 'destructive' });
-      } else if (failure === 'incorrect_password') {
-        toast({ title: 'Incorrect Password', description: 'The email or password is incorrect.', variant: 'destructive' });
-      } else {
-        toast({ title: 'Sign in failed', description: 'Please try again.', variant: 'destructive' });
-      }
-    } catch (e) {
+      // Persist minimal user for routing and exit loading immediately (avoid stalls)
+      try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {}
       setLoadingSignIn(false);
-      toast({ title: 'Network error', description: 'Unable to reach authentication service. Please try again.', variant: 'destructive' });
+
+      // Navigate immediately using metadata role; do not block on DB reads
+      const metaRole = ((data.user?.user_metadata as any)?.role as any) || 'customer';
+      const inferredRole = (metaRole === 'admin' || metaRole === 'employee' || metaRole === 'customer') ? metaRole : 'customer';
+      const routeFromMeta = inferredRole === 'admin'
+        ? '/admin-dashboard'
+        : inferredRole === 'employee'
+        ? '/employee-dashboard'
+        : '/customer-dashboard';
+      console.log('[Login] Navigating immediately with role:', inferredRole);
+      navigate(routeFromMeta, { replace: true });
+
+      // Finalize session in the background (do not block UI)
+      try { finalizeSupabaseSession(); } catch {}
+
+      // Background role lookup; if differs from metadata, adjust route
+      (async () => {
+        try {
+          const { data: appUser, error: appErr } = await supabase
+            .from('app_users')
+            .select('role')
+            .eq('id', data.user!.id)
+            .maybeSingle();
+          if (!appErr && appUser?.role && ['admin', 'employee', 'customer'].includes(appUser.role)) {
+            const dbRole = appUser.role as 'admin' | 'employee' | 'customer';
+            if (dbRole !== inferredRole) {
+              const route = dbRole === 'admin'
+                ? '/admin-dashboard'
+                : dbRole === 'employee'
+                ? '/employee-dashboard'
+                : '/customer-dashboard';
+              console.log('7. Adjusting route based on DB role:', route);
+              navigate(route, { replace: true });
+            }
+          } else {
+            console.warn('[Login] Role lookup failed or no role; keeping metadata route');
+          }
+        } catch (lookupErr) {
+          console.warn('[Login] Background role lookup error:', lookupErr);
+        }
+      })();
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      toast({ title: 'Sign in failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      console.log('5. (finally) ensure loading=false');
+      setLoadingSignIn(false);
     }
   };
 

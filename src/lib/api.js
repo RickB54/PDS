@@ -1264,6 +1264,57 @@ const api = async (endpoint, options = {}) => {
       return { ok: false, error: 'failed_to_send_admin_email_local' };
     }
   }
+  // Local handler: send customer email (store locally and alert)
+  if (endpoint === '/api/email/customer' && (options.method || 'GET').toUpperCase() === 'POST') {
+    try {
+      const payload = JSON.parse(options.body || '{}');
+      const { to = '', subject = '', body = '' } = payload || {};
+      const list = (await localforage.getItem('customer-emails')) || [];
+      const record = { id: `ce_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, to, subject, body, sentAt: new Date().toISOString() };
+      list.push(record);
+      await localforage.setItem('customer-emails', list);
+      try {
+        const { pushAdminAlert } = await import('@/lib/adminAlerts');
+        const safeSubject = String(subject || '').trim() || 'Customer email';
+        pushAdminAlert('admin_email_sent', `Customer email: ${safeSubject}`,'system', { recordType: 'Customer Email', subject: safeSubject, id: record.id });
+      } catch {}
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: 'failed_to_send_customer_email_local' };
+    }
+  }
+  // Local handler: bookings create/get for local-only mode
+  if (endpoint === '/api/bookings') {
+    const method = (options.method || 'GET').toUpperCase();
+    if (method === 'POST') {
+      try {
+        const payload = JSON.parse(options.body || '{}');
+        const list = (await localforage.getItem('bookings-api')) || [];
+        const id = payload.id || `bk_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+        const record = { id, ...payload, createdAt: new Date().toISOString() };
+        list.push(record);
+        await localforage.setItem('bookings-api', list);
+        try {
+          const { pushAdminAlert } = await import('@/lib/adminAlerts');
+          const price = Number(payload.total || 0);
+          const name = String(payload?.customer?.name || '').trim() || 'Customer';
+          pushAdminAlert('booking_created', `New booking $${price} — ${name}`, 'system', { recordType: 'Booking', bookingId: id, price });
+        } catch {}
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'bookings' } })); } catch {}
+        return { ok: true, id };
+      } catch (e) {
+        return { ok: false, error: 'failed_to_create_booking_local' };
+      }
+    }
+    if (method === 'GET') {
+      try {
+        const list = (await localforage.getItem('bookings-api')) || [];
+        return list;
+      } catch (e) {
+        return [];
+      }
+    }
+  }
   if (endpoint === '/api/inventory/materials' && (options.method || 'GET').toUpperCase() === 'POST') {
     try {
       const payload = JSON.parse(options.body || '{}');

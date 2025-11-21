@@ -12,7 +12,6 @@ import {
   DollarSign,
   LayoutDashboard,
   Globe,
-  Calendar,
   TicketPercent,
   GraduationCap,
   Shield,
@@ -31,7 +30,6 @@ import {
 } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import logo from "@/assets/logo-3inch.png";
-import { useBookingsStore } from "@/store/bookings";
 import { getAdminAlerts } from "@/lib/adminAlerts";
 import api from "@/lib/api";
 import { isViewed } from "@/lib/viewTracker";
@@ -44,8 +42,6 @@ export function AppSidebar() {
   const isEmployee = user?.role === 'employee';
   const isCustomer = user?.role === 'customer';
 
-  const items = useBookingsStore((s) => s.items);
-  const refresh = useBookingsStore((s) => s.refresh);
   const [tick, setTick] = useState(0);
   const getHiddenMenuItems = (): string[] => {
     try {
@@ -56,11 +52,7 @@ export function AppSidebar() {
   };
   const isHidden = (key: string) => getHiddenMenuItems().includes(key);
   useEffect(() => {
-    function onStorage(e: StorageEvent | Event) {
-      // If localStorage keys changed, refresh specific stores.
-      if ((e as StorageEvent).key === 'bookings') {
-        refresh();
-      }
+    function onStorage() {
       // Any storage-driven change should cause sidebar counters to recompute.
       setTick((t) => t + 1);
     }
@@ -75,22 +67,13 @@ export function AppSidebar() {
       window.removeEventListener('storage', onStorage as any);
       window.removeEventListener('auth-changed', updateUser as any);
     };
-  }, [refresh]);
+  }, []);
 
   // Auto-close the slide-out menu on any route change for more page space
   useEffect(() => {
     setOpenMobile(false);
   }, [location.pathname, setOpenMobile]);
-  const todayStr = new Date().toISOString().split('T')[0];
-  const requestFlags = (() => {
-    try { return JSON.parse(localStorage.getItem('bookingRequestFlags') || '{}'); } catch { return {}; }
-  })();
-  const pendingBookings = items.filter(b => {
-    const isToday = b.date.startsWith(todayStr);
-    const isPending = b.status === "pending";
-    const isRequested = !!requestFlags[b.id];
-    return isToday && (isPending || isRequested) && !isViewed("booking", b.id);
-  }).length;
+  // Removed Bookings counters and store refresh logic
   // Red badge: number of unviewed PDFs (any type), reflects yellow bells in File Manager.
   const fileCount = (() => {
     try {
@@ -292,19 +275,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {(isAdmin || isEmployee) && !isHidden('bookings') && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild onClick={handleNavClick}>
-                    <NavLink to="/bookings" className={linkClass}>
-                      <Calendar className="h-4 w-4" />
-                      <span>Bookings</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                  {pendingBookings > 0 && (
-                    <SidebarMenuBadge className="bg-red-600 text-white">{pendingBookings}</SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
-              )}
+              {/* Bookings menu removed */}
               {isEmployee && !isHidden('employee-training') && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild onClick={handleNavClick}>
