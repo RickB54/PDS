@@ -20,9 +20,23 @@ export default function NotificationBell() {
   const [empItems, setEmpItems] = useState<{ id: string; title: string; href: string; read?: boolean }[]>([]);
   const [empUnreadCount, setEmpUnreadCount] = useState<number>(0);
   const [ring, setRing] = useState(false);
+  const [popupText, setPopupText] = useState<string | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const hideRef = useRef<any>(null);
   const prevUnreadRef = useRef(unreadCount);
   const location = useLocation();
   const isFileManagerView = location.pathname.startsWith('/file-manager');
+
+  const items = useMemo(() => {
+    if (isEmployee) return [...empItems].reverse().slice(0, 10);
+    return [...latest].reverse().slice(0, 10);
+  }, [latest, empItems, isEmployee]);
+
+  const truncate = (text: string) => {
+    const words = String(text || '').trim().split(/\s+/);
+    if (words.length <= 5) return words.join(' ');
+    return words.slice(0, 5).join(' ') + '…';
+  };
 
   useEffect(() => {
     const count = isEmployee ? empUnreadCount : unreadCount;
@@ -43,9 +57,17 @@ export default function NotificationBell() {
         o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 180);
       } catch {}
       setTimeout(() => setRing(false), 600);
+      const newest = items[0]?.title || '';
+      const tx = truncate(newest);
+      if (tx) {
+        setPopupText(tx);
+        setShowPopup(true);
+        if (hideRef.current) clearTimeout(hideRef.current);
+        hideRef.current = setTimeout(() => setShowPopup(false), 5000);
+      }
     }
     prevUnreadRef.current = count;
-  }, [unreadCount, empUnreadCount, isFileManagerView, isEmployee]);
+  }, [unreadCount, empUnreadCount, isFileManagerView, isEmployee, items]);
 
   // Keep dropdown in sync when alerts/employee notifications change
   useEffect(() => {
@@ -83,10 +105,7 @@ export default function NotificationBell() {
     };
   }, [refresh, employeeKeys.join('|')]);
 
-  const items = useMemo(() => {
-    if (isEmployee) return [...empItems].reverse().slice(0, 10);
-    return [...latest].reverse().slice(0, 10);
-  }, [latest, empItems, isEmployee]);
+  
   // Compute important unread using full AdminAlert objects, not mapped UI items
   const importantUnreadActual = useMemo(() => {
     if (isEmployee) return 0; // employee notifications are all treated equally for now
@@ -106,6 +125,11 @@ export default function NotificationBell() {
             <Badge className="absolute -top-1 -right-1 bg-yellow-500 text-black">{importantUnread}</Badge>
           ) : (
             <Badge className="absolute -top-1 -right-1 bg-zinc-700 text-white">{displayUnreadCount}</Badge>
+          )}
+          {showPopup && popupText && (
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-black text-white border border-zinc-700 rounded px-2 py-1 whitespace-nowrap">
+              {popupText}
+            </div>
           )}
         </Button>
       </DropdownMenuTrigger>

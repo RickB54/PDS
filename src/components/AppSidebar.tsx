@@ -15,7 +15,8 @@ import {
   TicketPercent,
   GraduationCap,
   Shield,
-  CheckSquare
+  CheckSquare,
+  Car
 } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -177,8 +178,7 @@ export function AppSidebar() {
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild onClick={handleNavClick}>
-                    <NavLink
-                      to="/website-admin"
+                    <NavLink to="/website-admin"
                       className={({ isActive }: { isActive: boolean }) =>
                         `flex items-center gap-2 ${isActive ? 'text-red-500 font-semibold' : 'text-red-600'} hover:text-red-700`}
                     >
@@ -222,16 +222,40 @@ export function AppSidebar() {
                 )}
               </SidebarMenuItem>
 
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleNavClick}>
+                  <NavLink to="/team-communications" className={linkClass}>
+                    <Users className="h-4 w-4" />
+                    <span>Team Communications</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild onClick={handleNavClick}>
+                    <NavLink to="/sub-contractors" className={linkClass}>
+                      <Users className="h-4 w-4" />
+                      <span>Sub‑Contractors</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {!isHidden('search-customer') && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild onClick={handleNavClick}>
                     <NavLink to="/search-customer" className={linkClass}>
                       <Users className="h-4 w-4" />
-                      <span>Customer Profiles</span>
+                      <span>Customer Info</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {/* Client Intake quick link routes to Customers page with intake focus */}
+              
+
+              {/* Client Intake Tools removed from slide-out menu */}
 
               {isAdmin && !isHidden('package-pricing') && (
                 <SidebarMenuItem>
@@ -275,6 +299,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {/* Client Intake tool links removed from slide-out menu per request */}
               {/* Bookings menu removed */}
               {isEmployee && !isHidden('employee-training') && (
                 <SidebarMenuItem>

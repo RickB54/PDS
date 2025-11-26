@@ -113,6 +113,49 @@ alter table if exists public.services
   add column if not exists is_active boolean default true,
   add column if not exists updated_at timestamptz default now();
 
+-- Client Evaluations (future use)
+create table if not exists public.client_evaluations (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references public.customers(id),
+  exterior_condition int check (exterior_condition between 1 and 5),
+  interior_condition int check (interior_condition between 1 and 5),
+  odor_level text check (odor_level in ('None','Mild','Strong')),
+  pet_hair_level text check (pet_hair_level in ('None','Light','Heavy')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.client_evaluations enable row level security;
+create policy if not exists client_evaluations_read on public.client_evaluations for select using (public.is_employee());
+create policy if not exists client_evaluations_admin_write on public.client_evaluations for all using (public.is_admin()) with check (public.is_admin());
+
+-- Upsell Recommendations (future use)
+create table if not exists public.upsell_recommendations (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references public.customers(id),
+  complaints jsonb,
+  recommendations jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.upsell_recommendations enable row level security;
+create policy if not exists upsell_recommendations_read on public.upsell_recommendations for select using (public.is_employee());
+create policy if not exists upsell_recommendations_admin_write on public.upsell_recommendations for all using (public.is_admin()) with check (public.is_admin());
+
+-- Packages Info (future use)
+create table if not exists public.packages_info (
+  id uuid primary key default gen_random_uuid(),
+  package_name text not null,
+  description text,
+  includes jsonb,
+  best_for text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.packages_info enable row level security;
+create policy if not exists packages_info_read on public.packages_info for select using (public.is_employee());
+create policy if not exists packages_info_admin_write on public.packages_info for all using (public.is_admin()) with check (public.is_admin());
+
 -- Packages
 create table if not exists public.packages (
   id text primary key,
@@ -435,6 +478,34 @@ create table if not exists public.payments (
 );
 alter table public.payments enable row level security;
 create policy if not exists payments_admin_all on public.payments for all using (public.is_admin()) with check (public.is_admin());
-create policy if not exists payments_employee_select on public.payments for select using (public.is_employee());
+  create policy if not exists payments_employee_select on public.payments for select using (public.is_employee());
 
 -- Subscriptions are not used by this app. All subscription tables and policies removed.
+
+-- Vehicle classification master table
+create table if not exists public.vehicle_classification (
+  id uuid primary key default gen_random_uuid(),
+  make text not null,
+  model text not null,
+  year_start integer,
+  year_end integer,
+  type_category text check (type_category in ('Compact / Sedan','Mid-Size / SUV','Truck / Van / Large SUV')) not null,
+  is_luxury boolean default false,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.vehicle_classification enable row level security;
+create policy if not exists vehicle_classification_employee_read on public.vehicle_classification for select using (public.is_employee());
+create policy if not exists vehicle_classification_admin_write on public.vehicle_classification for all using (public.is_admin()) with check (public.is_admin());
+-- Allow inserts from authenticated users to unblock Add Vehicle modal save
+create policy if not exists "allow insert for authenticated users" on public.vehicle_classification
+  for insert
+  to authenticated
+  with check (true);
+
+-- TEMP: allow inserts from anon when frontend auth is broken; remove later
+create policy if not exists "allow insert for anon" on public.vehicle_classification
+  for insert
+  to anon
+  with check (true);

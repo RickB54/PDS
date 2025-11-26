@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,15 @@ const SearchCustomer = () => {
   const [autoOpenedAdd, setAutoOpenedAdd] = useState(false);
 const [dateFilter, setDateFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const intakeRef = useRef<HTMLDivElement | null>(null);
+  const [quickName, setQuickName] = useState("");
+  const [quickPhone, setQuickPhone] = useState("");
+  const [quickEmail, setQuickEmail] = useState("");
+  const [quickAddress, setQuickAddress] = useState("");
+  const [quickVehicleMake, setQuickVehicleMake] = useState("");
+  const [quickVehicleModel, setQuickVehicleModel] = useState("");
+  const [quickVehicleYear, setQuickVehicleYear] = useState("");
+  const [quickNotes, setQuickNotes] = useState("");
 
 useEffect(() => {
     (async () => {
@@ -127,6 +136,13 @@ const refresh = async () => {
       setEditing(null);
       setModalOpen(true);
       setAutoOpenedAdd(true);
+    }
+    // Focus Quick Intake when `?intake=1` (no modal)
+    const intakeFlag = params.get("intake");
+    const intakeOpen = intakeFlag === "true" || intakeFlag === "1" || (intakeFlag === null && params.has("intake"));
+    if (intakeOpen && intakeRef.current) {
+      try { intakeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
+      setQuickName(""); setQuickPhone("");
     }
   }, [location.search, autoOpenedAdd]);
 
@@ -206,6 +222,81 @@ const filterByDate = (customer: Customer) => {
       
       <main className="container mx-auto px-4 py-6 max-w-6xl">
         <div className="space-y-6 animate-fade-in">
+          {/* Quick-Add Client Intake */}
+          <Card ref={intakeRef as any} className="p-6 bg-gradient-card border-border">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Client Intake</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Name *</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Full name" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Phone *</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)} placeholder="(555) 555-5555" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Email</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickEmail} onChange={(e) => setQuickEmail(e.target.value)} placeholder="client@email.com" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Address</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickAddress} onChange={(e) => setQuickAddress(e.target.value)} placeholder="Street, City, State" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Vehicle Make</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickVehicleMake} onChange={(e) => setQuickVehicleMake(e.target.value)} placeholder="e.g., Toyota" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Vehicle Model</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickVehicleModel} onChange={(e) => setQuickVehicleModel(e.target.value)} placeholder="e.g., Camry" />
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Vehicle Year</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickVehicleYear} onChange={(e) => setQuickVehicleYear(e.target.value)} placeholder="e.g., 2021" />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">Notes</Label>
+                  <Input className="mt-2 bg-background border-border" value={quickNotes} onChange={(e) => setQuickNotes(e.target.value)} placeholder="Notes…" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="bg-gradient-hero" onClick={async () => {
+                  const nm = quickName.trim();
+                  const ph = quickPhone.trim();
+                  if (!nm || !ph) { toast({ title: 'Name and Phone are required' }); return; }
+                  const payload: Partial<Customer> = {
+                    name: nm,
+                    phone: ph,
+                    email: quickEmail.trim(),
+                    address: quickAddress.trim(),
+                    vehicle: quickVehicleMake.trim(),
+                    model: quickVehicleModel.trim(),
+                    year: quickVehicleYear.trim(),
+                    notes: quickNotes.trim(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                  try {
+                    await api('/api/customers', { method: 'POST', body: JSON.stringify(payload) });
+                    await refresh();
+                    setQuickName(''); setQuickPhone(''); setQuickEmail(''); setQuickAddress(''); setQuickVehicleMake(''); setQuickVehicleModel(''); setQuickVehicleYear(''); setQuickNotes('');
+                    toast({ title: 'Client saved', description: 'Record stored.' });
+                  } catch (_e: any) {
+                    try {
+                      await upsertCustomer(payload as any);
+                      const list = await getCustomers();
+                      setCustomers(list as Customer[]);
+                      setQuickName(''); setQuickPhone(''); setQuickEmail(''); setQuickAddress(''); setQuickVehicleMake(''); setQuickVehicleModel(''); setQuickVehicleYear(''); setQuickNotes('');
+                      toast({ title: 'Saved locally', description: 'Backend unavailable; stored offline.' });
+                    } catch (err2: any) {
+                      toast({ title: 'Save failed', description: err2?.message || String(err2), variant: 'destructive' });
+                    }
+                  }
+                }}>Save Client</Button>
+                <Button variant="outline" onClick={() => { setQuickName(''); setQuickPhone(''); setQuickEmail(''); setQuickAddress(''); setQuickVehicleMake(''); setQuickVehicleModel(''); setQuickVehicleYear(''); setQuickNotes(''); }}>Reset</Button>
+              </div>
+            </div>
+          </Card>
           {/* Search Bar */}
           <Card className="p-6 bg-gradient-card border-border">
             <div className="space-y-4">

@@ -37,8 +37,12 @@ import CustomerAccount from "./pages/CustomerAccount";
 import CustomerProfile from "./pages/CustomerProfile";
 import Portal from "./pages/Portal";
 import AdminDashboard from "./pages/AdminDashboard";
+import ClientEvaluation from "./pages/ClientEvaluation";
+import UpsellScript from "./pages/UpsellScript";
+import PackageGuide from "./pages/PackageGuide";
 import UserManagement from "./pages/UserManagement";
 import AdminUsers from "./pages/AdminUsers";
+import VehicleClassification from "./pages/VehicleClassification";
 import WebsiteAdministration from "./pages/WebsiteAdministration";
 import BookingsPage from "./pages/BookingsPage";
 import DiscountCoupons from "./pages/DiscountCoupons";
@@ -49,6 +53,9 @@ import ExamPage from "./pages/ExamPage";
 import ExamAdmin from "./pages/ExamAdmin";
 import CheatSheet from "./pages/CheatSheet";
 import Tasks from "./pages/Tasks";
+import TeamCommunications from "./pages/TeamCommunications";
+import SubContractors from "./pages/SubContractors";
+import Vendors from "./pages/Vendors";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { initTaskWorkflowListeners } from "./store/tasks";
 
@@ -166,6 +173,21 @@ const App = () => {
                         <Tasks />
                       </ProtectedRoute>
                     } />
+                    <Route path="/team-communications" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <TeamCommunications />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/sub-contractors" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <SubContractors />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/vendors" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <Vendors />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/search-customer" element={
                       <ProtectedRoute allowedRoles={['employee', 'admin']}>
                         <SearchCustomer />
@@ -229,6 +251,26 @@ const App = () => {
                     <Route path="/admin/users" element={
                       <ProtectedRoute allowedRoles={['admin']}>
                         <AdminUsers />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/vehicle-classification" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <VehicleClassification />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/client-evaluation" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <ClientEvaluation />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/upsell-script" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <UpsellScript />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/package-guide" element={
+                      <ProtectedRoute allowedRoles={['employee', 'admin']}>
+                        <PackageGuide />
                       </ProtectedRoute>
                     } />
                     <Route path="/website-admin" element={

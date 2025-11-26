@@ -29,8 +29,10 @@ export default function Tasks() {
   const isAdmin = user?.role === 'admin';
   const isEmployee = user?.role === 'employee';
   // Team Communication state
-  const [chatMessages, setChatMessages] = useState<{ id: string; author: string; text: string; at: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ id: string; author: string; text: string; at: string; parentId?: string; to?: string }[]>([]);
   const [newChatText, setNewChatText] = useState("");
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<string>("");
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function Tasks() {
       try {
         const raw = await localforage.getItem('task_chat');
         const arr = Array.isArray(raw) ? raw as any[] : [];
-        setChatMessages(arr.map(m => ({ id: m.id, author: m.author, text: m.text, at: m.at })));
+        setChatMessages(arr.map(m => ({ id: m.id, author: m.author, text: m.text, at: m.at, parentId: m.parentId, to: m.to })));
       } catch { setChatMessages([]); }
     })();
   }, []);
@@ -280,87 +282,146 @@ export default function Tasks() {
         <Card className="p-4 bg-[#0f0f13] border border-zinc-800 rounded-xl lg:sticky lg:top-4 max-w-full">
           <div className="font-semibold mb-2">Task Details</div>
           {editing ? (
-            <div className="space-y-2">
-              <Input value={editing.title} onChange={(e)=>setEditing({ ...editing, title: e.target.value })} />
-              <Input value={editing.description||''} onChange={(e)=>setEditing({ ...editing, description: e.target.value })} placeholder="Description" />
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <Input type="date" value={editing.dueDate||''} onChange={(e)=>setEditing({ ...editing, dueDate: e.target.value })} />
-                <Input type="time" value={editing.dueTime||''} onChange={(e)=>setEditing({ ...editing, dueTime: e.target.value })} />
-              </div>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <Select value={editing.priority} onValueChange={(v)=>setEditing({ ...editing, priority: v as TaskPriority })} disabled={!isAdmin}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {priorities.map(p => (<SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={editing.status} onValueChange={(v)=>setEditing({ ...editing, status: v as TaskStatus })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {statuses.map(s => (<SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {isAdmin && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Assign to employees</div>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {employees.map((e:any) => {
-                    const key = String(e.email || e.name || e.id || '').trim();
-                    const selected = Array.isArray((editing as any).assignees) ? (editing as any).assignees : (editing?.assigneeId ? [{ name: editing?.assigneeId }] : []);
-                    const isChecked = selected.some((a:any) => String(a.email || a.name || '') === key);
-                    return (
-                      <label key={key} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={isChecked} onChange={(ev)=>{
-                          const list = Array.isArray((editing as any).assignees) ? (editing as any).assignees.slice() : [];
-                          if (ev.target.checked) list.push({ email: e.email, name: e.name }); else {
-                            const idx = list.findIndex((a:any) => String(a.email || a.name || '') === key);
-                            if (idx >= 0) list.splice(idx,1);
-                          }
-                          setEditing({ ...editing!, assignees: list });
-                        }} />
-                        <span>{e.name || e.email}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-              )}
-              <Input value={editing.customerId||''} onChange={(e)=>setEditing({ ...editing, customerId: e.target.value })} placeholder="Link customer (id/name)" disabled={!isAdmin} />
-              <Input value={editing.vehicleId||''} onChange={(e)=>setEditing({ ...editing, vehicleId: e.target.value })} placeholder="Link vehicle (id)" disabled={!isAdmin} />
-              <Input value={editing.workOrderId||''} onChange={(e)=>setEditing({ ...editing, workOrderId: e.target.value })} placeholder="Link work order (id)" disabled={!isAdmin} />
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Checklist</div>
-                <div className="space-y-1">
-                  {editing.checklist.map((c, idx) => (
-                    <label key={c.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={c.done} onChange={(e)=>{
-                        const list = editing.checklist.slice(); list[idx] = { ...c, done: e.target.checked }; setEditing({ ...editing, checklist: list });
-                      }} />
-                      <input className="flex-1 bg-transparent border border-zinc-700 rounded px-2 py-1" value={c.text} onChange={(e)=>{
-                        const list = editing.checklist.slice(); list[idx] = { ...c, text: e.target.value }; setEditing({ ...editing, checklist: list });
-                      }} />
-                    </label>
-                  ))}
-                  <Button size="sm" variant="outline" onClick={()=>setEditing({ ...editing!, checklist: [...editing!.checklist, { id: `chk_${Math.random().toString(36).slice(2,6)}`, text: '', done: false }] })}>Add Item</Button>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Attachments</div>
-                <input type="file" onChange={(e)=>{
-                  const f = e.target.files?.[0]; if (!f) return;
-                  const url = URL.createObjectURL(f);
-                  const att = { id: `att_${Date.now()}`, name: f.name, url, type: f.type, size: f.size };
-                  setEditing({ ...editing!, attachments: [...editing!.attachments, att] });
-                }} />
-                <div className="space-y-1 mt-2">
-                  {editing.attachments.map(a => (
-                    <div key={a.id} className="flex items-center gap-2 text-xs">
-                      <Paperclip className="w-3 h-3" /><a href={a.url} target="_blank" rel="noreferrer" className="text-blue-400 underline">{a.name}</a>
+            <div className="space-y-3">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="overview">
+                  <AccordionTrigger>
+                    <div className="w-full text-left">
+                      <div className="text-sm">Overview</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">{editing.description || ''}</div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <Input value={editing.title} onChange={(e)=>setEditing({ ...editing, title: e.target.value })} />
+                      <Input value={editing.description||''} onChange={(e)=>setEditing({ ...editing, description: e.target.value })} placeholder="Description" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input type="date" value={editing.dueDate||''} onChange={(e)=>setEditing({ ...editing, dueDate: e.target.value })} />
+                        <Input type="time" value={editing.dueTime||''} onChange={(e)=>setEditing({ ...editing, dueTime: e.target.value })} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Select value={editing.priority} onValueChange={(v)=>setEditing({ ...editing, priority: v as TaskPriority })} disabled={!isAdmin}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {priorities.map(p => (<SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={editing.status} onValueChange={(v)=>setEditing({ ...editing, status: v as TaskStatus })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {statuses.map(s => (<SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                {isAdmin && (
+                  <AccordionItem value="assignees">
+                    <AccordionTrigger>Assignees</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {employees.map((e:any) => {
+                          const key = String(e.email || e.name || e.id || '').trim();
+                          const selected = Array.isArray((editing as any).assignees) ? (editing as any).assignees : (editing?.assigneeId ? [{ name: editing?.assigneeId }] : []);
+                          const isChecked = selected.some((a:any) => String(a.email || a.name || '') === key);
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-sm">
+                              <input type="checkbox" checked={isChecked} onChange={(ev)=>{
+                                const list = Array.isArray((editing as any).assignees) ? (editing as any).assignees.slice() : [];
+                                if (ev.target.checked) list.push({ email: e.email, name: e.name }); else {
+                                  const idx = list.findIndex((a:any) => String(a.email || a.name || '') === key);
+                                  if (idx >= 0) list.splice(idx,1);
+                                }
+                                setEditing({ ...editing!, assignees: list });
+                              }} />
+                              <span>{e.name || e.email}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+                <AccordionItem value="links">
+                  <AccordionTrigger>Links</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <Input value={editing.customerId||''} onChange={(e)=>setEditing({ ...editing, customerId: e.target.value })} placeholder="Link customer (id/name)" disabled={!isAdmin} />
+                      <Input value={editing.vehicleId||''} onChange={(e)=>setEditing({ ...editing, vehicleId: e.target.value })} placeholder="Link vehicle (id)" disabled={!isAdmin} />
+                      <Input value={editing.workOrderId||''} onChange={(e)=>setEditing({ ...editing, workOrderId: e.target.value })} placeholder="Link work order (id)" disabled={!isAdmin} />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="checklist">
+                  <AccordionTrigger>Checklist</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-1">
+                      {editing.checklist.map((c, idx) => (
+                        <label key={c.id} className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={c.done} onChange={(e)=>{
+                            const list = editing.checklist.slice(); list[idx] = { ...c, done: e.target.checked }; setEditing({ ...editing, checklist: list });
+                          }} />
+                          <input className="flex-1 bg-transparent border border-zinc-700 rounded px-2 py-1" value={c.text} onChange={(e)=>{
+                            const list = editing.checklist.slice(); list[idx] = { ...c, text: e.target.value }; setEditing({ ...editing, checklist: list });
+                          }} />
+                        </label>
+                      ))}
+                      <Button size="sm" variant="outline" onClick={()=>setEditing({ ...editing!, checklist: [...editing!.checklist, { id: `chk_${Math.random().toString(36).slice(2,6)}`, text: '', done: false }] })}>Add Item</Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="attachments">
+                  <AccordionTrigger>Attachments</AccordionTrigger>
+                  <AccordionContent>
+                    <input type="file" onChange={(e)=>{
+                      const f = e.target.files?.[0]; if (!f) return;
+                      const url = URL.createObjectURL(f);
+                      const att = { id: `att_${Date.now()}`, name: f.name, url, type: f.type, size: f.size };
+                      setEditing({ ...editing!, attachments: [...editing!.attachments, att] });
+                    }} />
+                    <div className="space-y-1 mt-2">
+                      {editing.attachments.map(a => (
+                        <div key={a.id} className="flex items-center gap-2 text-xs">
+                          <Paperclip className="w-3 h-3" /><a href={a.url} target="_blank" rel="noreferrer" className="text-blue-400 underline">{a.name}</a>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="comments">
+                  <AccordionTrigger>Comments</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {(editing.comments || []).map((c) => (
+                        <div key={c.id} className="border border-zinc-800 rounded p-2">
+                          <div className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()} • {c.authorName || c.authorEmail || 'User'}</div>
+                          <div className="text-sm">{c.text}</div>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2">
+                        <Input placeholder="Add a comment" value={(editing as any)._newComment || ''} onChange={(e)=>setEditing({ ...editing!, _newComment: e.target.value } as any)} />
+                        <Button variant="secondary" onClick={async ()=>{
+                          const text = String((editing as any)._newComment || '').trim();
+                          if (!text) return;
+                          await useTasksStore.getState().addComment(editing!.id, { text });
+                          toast({ title: 'Comment added' });
+                          const fresh = useTasksStore.getState().items.find(i => i.id === editing!.id);
+                          if (fresh) setEditing({ ...fresh, _newComment: '' } as any);
+                        }}>Post</Button>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="reads">
+                  <AccordionTrigger>Read Receipts</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="text-xs text-muted-foreground">
+                      {(editing.readReceipts || []).length === 0 ? 'No reads yet.' : (editing.readReceipts || []).map(r => `${r.user} @ ${new Date(r.viewedAt).toLocaleString()}`).join(' • ')}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
               <div className="flex items-center gap-2">
                 <Button onClick={async ()=>{
                   const payload = isAdmin ? editing : ({ status: editing.status } as any);
@@ -369,39 +430,30 @@ export default function Tasks() {
                 }}>Save</Button>
                 <Button variant="ghost" onClick={()=>setEditing(null)}>Close</Button>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Comments</div>
-                <div className="space-y-2">
-                  {(editing.comments || []).map((c) => (
-                    <div key={c.id} className="border border-zinc-800 rounded p-2">
-                      <div className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()} • {c.authorName || c.authorEmail || 'User'}</div>
-                      <div className="text-sm">{c.text}</div>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <Input placeholder="Add a comment" value={(editing as any)._newComment || ''} onChange={(e)=>setEditing({ ...editing!, _newComment: e.target.value } as any)} />
-                    <Button variant="secondary" onClick={async ()=>{
-                      const text = String((editing as any)._newComment || '').trim();
-                      if (!text) return;
-                      await useTasksStore.getState().addComment(editing!.id, { text });
-                      toast({ title: 'Comment added' });
-                      // Refresh local editing state
-                      const fresh = useTasksStore.getState().items.find(i => i.id === editing!.id);
-                      if (fresh) setEditing({ ...fresh, _newComment: '' } as any);
-                    }}>Post</Button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Read Receipts</div>
-                <div className="text-xs text-muted-foreground">
-                  {(editing.readReceipts || []).length === 0 ? 'No reads yet.' : (editing.readReceipts || []).map(r => `${r.user} @ ${new Date(r.viewedAt).toLocaleString()}`).join(' • ')}
-                </div>
-              </div>
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">Select a task to edit.</div>
           )}
+        </Card>
+      </div>
+
+      {/* Todo quick view under rolled-up Task Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 mt-4">
+        <div></div>
+        <Card className="p-4 bg-[#0f0f13] border border-zinc-800 rounded-xl lg:sticky lg:top-[300px] max-w-full">
+          <div className="font-semibold mb-2">Todo</div>
+          <div className="space-y-2">
+            {filtered.slice(0, 6).map(t => (
+              <button key={t.id} className="w-full text-left border border-zinc-800 rounded px-3 py-2 hover:bg-zinc-900"
+                onClick={() => setEditing(t)}>
+                <div className="text-sm font-medium text-foreground line-clamp-1">{t.title}</div>
+                <div className="text-xs text-muted-foreground line-clamp-1">{t.description}</div>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="text-sm text-muted-foreground">No tasks</div>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -419,10 +471,39 @@ export default function Tasks() {
           <div className="space-y-2 max-h-[240px] overflow-auto pr-1">
             {chatMessages.length === 0 ? (
               <div className="text-sm text-muted-foreground">No messages yet. Start the conversation.</div>
-            ) : chatMessages.map(m => (
+            ) : chatMessages.filter(m => !m.parentId).map(m => (
               <div key={m.id} className="border border-zinc-800 rounded p-2">
                 <div className="text-xs text-muted-foreground">{new Date(m.at).toLocaleString()} • {m.author}</div>
                 <div className="text-sm">{m.text}</div>
+                <div className="mt-2 space-y-1">
+                  {chatMessages.filter(r => r.parentId === m.id).map(r => (
+                    <div key={r.id} className="ml-4 border border-zinc-800 rounded p-2 bg-zinc-900">
+                      <div className="text-xs text-muted-foreground">{new Date(r.at).toLocaleString()} • {r.author} → {r.to || ''}</div>
+                      <div className="text-sm">{r.text}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={() => { setReplyToId(m.id); setReplyText(""); }}>Reply</Button>
+                </div>
+                {replyToId === m.id && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input placeholder={`Reply to ${m.author}`} value={replyText} onChange={(e)=>setReplyText(e.target.value)} />
+                    <Button variant="secondary" onClick={async ()=>{
+                      const text = replyText.trim(); if (!text) return;
+                      const msg = { id: `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, author: String(user?.name || user?.email || 'Admin'), text, at: new Date().toISOString(), parentId: m.id, to: m.author };
+                      const next = [...chatMessages, msg];
+                      setChatMessages(next);
+                      setReplyText(""); setReplyToId(null);
+                      try { await localforage.setItem('task_chat', next); } catch {}
+                      try {
+                        const target = (employees || []).find(e => String(e.name || e.email || '').trim().toLowerCase() === String(m.author).trim().toLowerCase());
+                        const key = String(target?.email || target?.name || m.author);
+                        pushEmployeeNotification(key, `Reply from ${String(user?.name || 'Admin')}`, { text });
+                      } catch {}
+                    }}>Send Reply</Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -436,7 +517,7 @@ export default function Tasks() {
               setNewChatText('');
               try { await localforage.setItem('task_chat', next); } catch {}
               // Notify admins and assignees broadly
-              try { pushAdminAlert('todo_chat' as any, `New team message`, String(user?.email || user?.name || 'user'), { text }); } catch {}
+              try { pushAdminAlert('todo_chat' as any, `New team message`, String(user?.email || user?.name || 'user'), { text, messageId: msg.id }); } catch {}
               try {
                 (employees || []).forEach(e => {
                   const key = String(e.email || e.name || '').trim();

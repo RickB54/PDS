@@ -1,4 +1,6 @@
 import localforage from 'localforage';
+import supabase from '@/lib/supabase';
+import { isSupabaseEnabled } from '@/lib/auth';
 const API_BASE = 'http://localhost:6061';
 
 // Basic retry wrapper and clearer error messaging when backend is unavailable.
@@ -30,6 +32,108 @@ async function fetchWithRetry(url, options = {}, retries = 1) {
 }
 
 const api = async (endpoint, options = {}) => {
+  const normalizeSub = (row) => ({
+    id: row.id,
+    created_at: row.created_at || row.createdAt || null,
+    full_name: String(row.contact_name || row.full_name || ''),
+    business_name: String(row.company_name || row.business_name || ''),
+    phone: String(row.phone || ''),
+    email: String(row.email || ''),
+    website: String(row.website_url || row.website || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    state: String(row.state || ''),
+    zip: String(row.zip || ''),
+    services: String(row.service_type || row.services || ''),
+    notes: String(row.notes || ''),
+    rating: Number(row.rating || 0),
+    availability: String(row.availability || '')
+  });
+  const denormalizeSub = (row) => ({
+    id: row.id,
+    created_at: row.created_at,
+    contact_name: String(row.full_name || ''),
+    company_name: String(row.business_name || ''),
+    phone: String(row.phone || ''),
+    email: String(row.email || ''),
+    website_url: String(row.website || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    state: String(row.state || ''),
+    zip: String(row.zip || ''),
+    service_type: String(row.services || ''),
+    notes: String(row.notes || ''),
+    rating: Number(row.rating || 0),
+    availability: String(row.availability || '')
+  });
+  const normalizeVendor = (row) => ({
+    id: row.id,
+    created_at: row.created_at || row.createdAt || null,
+    name: String(row.company_name || row.name || ''),
+    contact: String(row.contact || row.contact_name || ''),
+    phone: String(row.phone || ''),
+    email: String(row.email || ''),
+    website: String(row.website_url || row.website || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    state: String(row.state || ''),
+    zip: String(row.zip || ''),
+    category: String(row.product_types || row.category || ''),
+    notes: String(row.notes || ''),
+    rating: Number(row.rating || 0)
+  });
+  const denormalizeVendor = (row) => ({
+    id: row.id,
+    created_at: row.created_at,
+    company_name: String(row.name || ''),
+    phone: String(row.phone || ''),
+    email: String(row.email || ''),
+    website_url: String(row.website || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    state: String(row.state || ''),
+    zip: String(row.zip || ''),
+    product_types: String(row.category || ''),
+    notes: String(row.notes || ''),
+    rating: Number(row.rating || 0)
+  });
+  const fallbackYelp = (area, limit) => {
+    const base = [
+      { company_name: 'Methuen Auto Detailing', contact_name: '', phone: '(978) 555-0123', email: '', website_url: 'https://methuen-detail.com', address: '12 Broadway', city: 'Methuen', state: 'MA', zip: '01844', service_type: 'Auto Detailing', product_types: 'Detailing Supplies', created_at: new Date().toISOString() },
+      { company_name: 'Riveredge Detail', contact_name: '', phone: '(978) 555-0198', email: '', website_url: 'https://riveredge-detail.com', address: '85 Riverside Dr', city: 'Methuen', state: 'MA', zip: '01844', service_type: 'Auto Detailing', product_types: 'Car Care', created_at: new Date().toISOString() },
+      { company_name: 'Haverhill Shine', contact_name: '', phone: '(978) 555-0177', email: '', website_url: 'https://haverhillshine.com', address: '221 Main St', city: 'Haverhill', state: 'MA', zip: '01830', service_type: 'Auto Detailing', product_types: 'Supplies', created_at: new Date().toISOString() }
+    ];
+    const pick = base.slice(0, Math.max(1, Math.min(limit || 10, base.length)));
+    return pick.map((b) => ({ ...b, id: `import_${Date.now()}_${Math.random().toString(36).slice(2,6)}` }));
+  };
+  const yelpSearch = async (term, area, limit) => {
+    const key = localStorage.getItem('yelp_api_key') || '';
+    if (!key) return fallbackYelp(area, limit);
+    try {
+      const url = `https://api.yelp.com/v3/businesses/search?term=${encodeURIComponent(term)}&location=${encodeURIComponent(area)}&limit=${Math.max(1, Math.min(50, limit || 10))}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+      if (!res.ok) return fallbackYelp(area, limit);
+      const data = await res.json();
+      const items = Array.isArray(data?.businesses) ? data.businesses : [];
+      return items.map((b) => ({
+        id: b.id,
+        company_name: String(b.name || ''),
+        contact_name: '',
+        phone: String(b.phone || ''),
+        email: '',
+        website_url: String(b.url || ''),
+        address: String((b.location?.address1 || '')).trim(),
+        city: String(b.location?.city || ''),
+        state: String(b.location?.state || ''),
+        zip: String(b.location?.zip_code || ''),
+        service_type: 'Auto Detailing',
+        product_types: String((Array.isArray(b.categories) ? b.categories.map(c => c.title).join(', ') : '')),
+        created_at: new Date().toISOString()
+      }));
+    } catch {
+      return fallbackYelp(area, limit);
+    }
+  };
   // =====================
   // Users administration
   // =====================
@@ -1096,22 +1200,253 @@ const api = async (endpoint, options = {}) => {
       return [];
     }
   }
-  // Payroll due logic: count employees overdue (no payment in last 7 days)
+  // Payroll due logic: count employees with actual owed > 0 and overdue
   if (endpoint === '/api/payroll/due-count' && (options.method || 'GET').toUpperCase() === 'GET') {
     try {
       const employees = (await localforage.getItem('company-employees')) || [];
       const history = (await localforage.getItem('payroll-history')) || [];
+      const jobs = JSON.parse(localStorage.getItem('completedJobs') || '[]');
+      const adj = JSON.parse(localStorage.getItem('payroll_owed_adjustments') || '{}');
       const now = Date.now();
       const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      const isDue = (emp) => {
+      const calcOwed = (emp) => {
+        const unpaidJobs = jobs.filter(j => j.status === 'completed' && !j.paid && (String(j.employee) === emp.email || String(j.employee) === emp.name));
+        const unpaidSum = unpaidJobs.reduce((s, j) => s + Number(j.totalRevenue || 0), 0);
+        const pendingHist = history.filter(h => String(h.status) === 'Pending' && (String(h.employee) === emp.name || String(h.employee) === emp.email));
+        const pendingSum = pendingHist.reduce((s, h) => s + Number(h.amount || 0), 0);
+        const adjSum = Number(adj[emp.name] || 0) + Number(adj[emp.email] || 0);
+        return Math.max(0, unpaidSum + pendingSum - adjSum);
+      };
+      const count = employees.filter((emp) => {
         const lastPaidTs = emp.lastPaid ? new Date(emp.lastPaid).getTime() : 0;
         const recentPaid = history.some(h => String(h.status) === 'Paid' && (String(h.employee) === emp.name || String(h.employee) === emp.email) && (now - new Date(h.date).getTime()) <= sevenDays);
-        return (!recentPaid) && ((now - lastPaidTs) > sevenDays);
-      };
-      const count = employees.filter(isDue).length;
+        const overdue = (!recentPaid) && ((now - lastPaidTs) > sevenDays);
+        const owed = calcOwed(emp);
+        return overdue && owed > 0;
+      }).length;
       return { count };
     } catch (e) {
       return { count: 0 };
+    }
+  }
+
+  if (endpoint.startsWith('/api/sub-contractors')) {
+    const method = (options.method || 'GET').toUpperCase();
+    const key = 'sub_contractors';
+    const genId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? (crypto).randomUUID() : `sc_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    if (method === 'GET' && endpoint === '/api/sub-contractors') {
+      if (isSupabaseEnabled()) {
+        try {
+          const { data, error } = await supabase.from('sub_contractors').select('*').order('created_at', { ascending: false });
+          if (!error) return (Array.isArray(data) ? data.map(normalizeSub) : []);
+        } catch {}
+      }
+      try { const list = (await localforage.getItem(key)) || []; return Array.isArray(list) ? list : []; } catch { return []; }
+    }
+    if (method === 'POST' && endpoint === '/api/sub-contractors') {
+      const payload = JSON.parse(options.body || '{}');
+      if (isSupabaseEnabled()) {
+        try {
+          const row = denormalizeSub({ ...payload, id: payload.id || genId(), created_at: new Date().toISOString() });
+          const { data, error } = await supabase.from('sub_contractors').insert(row).select('*').single();
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {} return { ok: true, record: normalizeSub(data) }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const record = normalizeSub({ ...denormalizeSub(payload), id: genId(), created_at: new Date().toISOString() });
+        list.push(record);
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {}
+        return { ok: true, record };
+      } catch { return { ok: false, error: 'failed_to_create_local' }; }
+    }
+    if (method === 'PUT' && endpoint.startsWith('/api/sub-contractors/')) {
+      const id = endpoint.split('/')[3];
+      const payload = JSON.parse(options.body || '{}');
+      if (isSupabaseEnabled()) {
+        try {
+          const patch = denormalizeSub({ ...payload, id });
+          const { data, error } = await supabase.from('sub_contractors').update(patch).eq('id', id).select('*').single();
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {} return { ok: true, record: normalizeSub(data) }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const idx = list.findIndex((v) => v.id === id);
+        if (idx < 0) return { ok: false, error: 'not_found' };
+        const prev = list[idx];
+        list[idx] = { ...prev, ...payload, id: prev.id };
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {}
+        return { ok: true, record: list[idx] };
+      } catch { return { ok: false, error: 'failed_to_update_local' }; }
+    }
+    if (method === 'DELETE' && endpoint.startsWith('/api/sub-contractors/')) {
+      const id = endpoint.split('/')[3];
+      if (isSupabaseEnabled()) {
+        try {
+          const { error } = await supabase.from('sub_contractors').delete().eq('id', id);
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {} return { ok: true }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const next = list.filter((v) => v.id !== id);
+        await localforage.setItem(key, next);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'sub-contractors' } })); } catch {}
+        return { ok: true };
+      } catch { return { ok: false, error: 'failed_to_delete_local' }; }
+    }
+    if (method === 'GET' && endpoint.startsWith('/api/sub-contractors/search')) {
+      try {
+        const qStr = String(endpoint.split('?')[1] || '');
+        const params = new URLSearchParams(qStr);
+        const area = (params.get('area') || '').trim() || 'Methuen, MA 01844';
+        const q = (params.get('q') || '').toLowerCase();
+        const limit = Math.max(1, Math.min(100, parseInt(params.get('limit') || '10', 10) || 10));
+        const imported = await yelpSearch('auto detailing', area, limit);
+        const norm = imported.map(normalizeSub);
+        if (norm.length > 0) return norm;
+        const list = (await localforage.getItem(key)) || [];
+        const matchArea = (c) => {
+          const city = String(c.city || '').toLowerCase();
+          const state = String(c.state || '').toLowerCase();
+          const zip = String(c.zip || '').toLowerCase();
+          const addr = String(c.address || '').toLowerCase();
+          const hay = `${city} ${state} ${zip} ${addr}`;
+          return !params.get('area') || hay.includes(String(params.get('area') || '').toLowerCase());
+        };
+        const matchQ = (c) => {
+          if (!q) return true;
+          const hay = `${String(c.business_name||'')} ${String(c.full_name||'')} ${String(c.city||'')} ${String(c.state||'')} ${String(c.zip||'')}`.toLowerCase();
+          return hay.includes(q);
+        };
+        let filtered = (Array.isArray(list) ? list : []).filter(c => matchArea(c) && matchQ(c)).slice(0, limit);
+        if ((!filtered || filtered.length === 0)) {
+          try {
+            const vendors = (await localforage.getItem('detailing_vendors')) || [];
+            const vMatches = (Array.isArray(vendors) ? vendors : []).filter(c => matchArea(c) && matchQ(c)).slice(0, limit);
+            filtered = vMatches.map(v => normalizeSub({
+              id: v.id,
+              contact_name: String(v.contact || ''),
+              company_name: String(v.name || ''),
+              phone: String(v.phone || ''),
+              email: String(v.email || ''),
+              website_url: String(v.website || ''),
+              address: String(v.address || ''),
+              city: String(v.city || ''),
+              state: String(v.state || ''),
+              zip: String(v.zip || ''),
+              rating: Number(v.rating || 0),
+            }));
+          } catch {}
+        }
+        return filtered;
+      } catch { return []; }
+    }
+  }
+  // Detailing Vendors — Local CRUD & search
+  if (endpoint.startsWith('/api/vendors')) {
+    const method = (options.method || 'GET').toUpperCase();
+    const key = 'detailing_vendors';
+    const genId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? (crypto).randomUUID() : `dv_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    if (method === 'GET' && endpoint === '/api/vendors') {
+      if (isSupabaseEnabled()) {
+        try {
+          const { data, error } = await supabase.from('detailing_vendors').select('*').order('created_at', { ascending: false });
+          if (!error) return (Array.isArray(data) ? data.map(normalizeVendor) : []);
+        } catch {}
+      }
+      try { const list = (await localforage.getItem(key)) || []; return Array.isArray(list) ? list : []; } catch { return []; }
+    }
+    if (method === 'POST' && endpoint === '/api/vendors') {
+      const payload = JSON.parse(options.body || '{}');
+      if (isSupabaseEnabled()) {
+        try {
+          const row = denormalizeVendor({ ...payload, id: payload.id || genId(), created_at: new Date().toISOString() });
+          const { data, error } = await supabase.from('detailing_vendors').insert(row).select('*').single();
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {} return { ok: true, record: normalizeVendor(data) }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const record = normalizeVendor({ ...denormalizeVendor(payload), id: genId(), created_at: new Date().toISOString() });
+        list.push(record);
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {}
+        return { ok: true, record };
+      } catch { return { ok: false, error: 'failed_to_create_local' }; }
+    }
+    if (method === 'PUT' && endpoint.startsWith('/api/vendors/')) {
+      const id = endpoint.split('/')[3];
+      const payload = JSON.parse(options.body || '{}');
+      if (isSupabaseEnabled()) {
+        try {
+          const patch = denormalizeVendor({ ...payload, id });
+          const { data, error } = await supabase.from('detailing_vendors').update(patch).eq('id', id).select('*').single();
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {} return { ok: true, record: normalizeVendor(data) }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const idx = list.findIndex((v) => String(v.id) === String(id));
+        if (idx === -1) return { ok: false, error: 'not_found' };
+        const prev = list[idx];
+        list[idx] = { ...prev, ...payload, id: prev.id };
+        await localforage.setItem(key, list);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {}
+        return { ok: true, record: list[idx] };
+      } catch { return { ok: false, error: 'failed_to_update_local' }; }
+    }
+    if (method === 'DELETE' && endpoint.startsWith('/api/vendors/')) {
+      const id = endpoint.split('/')[3];
+      if (isSupabaseEnabled()) {
+        try {
+          const { error } = await supabase.from('detailing_vendors').delete().eq('id', id);
+          if (!error) { try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {} return { ok: true }; }
+        } catch {}
+      }
+      try {
+        const list = (await localforage.getItem(key)) || [];
+        const next = list.filter((v) => String(v.id) !== String(id));
+        await localforage.setItem(key, next);
+        try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { type: 'detailing-vendors' } })); } catch {}
+        return { ok: true };
+      } catch { return { ok: false, error: 'failed_to_delete_local' }; }
+    }
+    if (method === 'GET' && endpoint.startsWith('/api/vendors/search')) {
+      try {
+        const qStr = String(endpoint.split('?')[1] || '');
+        const params = new URLSearchParams(qStr);
+        const area = (params.get('area') || '').trim() || 'Methuen, MA 01844';
+        const q = (params.get('q') || '').toLowerCase();
+        const category = (params.get('category') || '').toLowerCase();
+        const limit = Math.max(1, Math.min(100, parseInt(params.get('limit') || '10', 10) || 10));
+        const imported = await yelpSearch('auto supply', area, limit);
+        const norm = imported.map(normalizeVendor);
+        if (norm.length > 0) return norm;
+        const list = (await localforage.getItem(key)) || [];
+        const matchArea = (c) => {
+          const city = String(c.city || '').toLowerCase();
+          const state = String(c.state || '').toLowerCase();
+          const zip = String(c.zip || '').toLowerCase();
+          const addr = String(c.address || '').toLowerCase();
+          const hay = `${city} ${state} ${zip} ${addr}`;
+          return !params.get('area') || hay.includes(String(params.get('area') || '').toLowerCase());
+        };
+        const matchQ = (c) => {
+          if (!q) return true;
+          const hay = `${String(c.name||'')} ${String(c.contact||'')} ${String(c.city||'')} ${String(c.state||'')} ${String(c.zip||'')}`.toLowerCase();
+          return hay.includes(q);
+        };
+        const matchCat = (c) => {
+          if (!category) return true;
+          return String(c.category || '').toLowerCase().includes(category);
+        };
+        const filtered = (Array.isArray(list) ? list : []).filter(c => matchArea(c) && matchQ(c) && matchCat(c)).slice(0, limit);
+        return filtered;
+      } catch { return []; }
     }
   }
   // Payroll due total: unpaid jobs + pending history - adjustments for overdue employees

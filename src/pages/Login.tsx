@@ -82,15 +82,20 @@ const Login = () => {
       toast({ title: 'Invalid user id / email', description: 'Please check your email address and try again.', variant: 'destructive' });
       return;
     }
+    if (!isSupabaseEnabled()) {
+      toast({ title: 'Supabase not configured', description: 'Set VITE_AUTH_MODE="supabase" and valid VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY.', variant: 'destructive' });
+      return;
+    }
     setLoadingSignIn(true);
     try {
       const emailTrimmed = email.trim().toLowerCase();
       console.log('2. Form submitted with email:', emailTrimmed);
       console.log('3. Calling Supabase auth...');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailTrimmed,
-        password,
-      });
+      const timeout = new Promise<{ data: any; error: any }>((resolve) => setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 10000));
+      const { data, error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email: emailTrimmed, password }),
+        timeout,
+      ] as any);
       console.log('4. Supabase response:', data, error);
       // Extra auth logging for diagnostics
       console.log('🔐 AUTH:', !error && !!data?.user);
@@ -113,6 +118,7 @@ const Login = () => {
       }
       // Persist minimal user for routing and exit loading immediately (avoid stalls)
       try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {}
+      try { if (data.user?.id) localStorage.setItem('session_user_id', data.user.id); } catch {}
       setLoadingSignIn(false);
 
       // Navigate immediately using metadata role; do not block on DB reads

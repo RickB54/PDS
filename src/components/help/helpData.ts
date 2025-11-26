@@ -11,6 +11,89 @@ export type HelpTopic = {
 // Admin help split into full coverage of slide-out Menu and Admin Dashboard actions
 export const adminMenuTopics: HelpTopic[] = [
   {
+    id: 'team-communications',
+    title: 'Team Communications',
+    summary: 'Company-wide messaging with replies, alerts, and admin actions.',
+    content: [
+      'View all team messages in the standalone page and in Todo.',
+      'Reply directly from Real‑time Alerts and mark read/dismiss.',
+      'Delete messages from both Admin Dashboard and Todo; syncs across tabs.',
+    ],
+    route: '/team-communications',
+    section: 'menu',
+  },
+  {
+    id: 'sub-contractors',
+    title: 'Sub‑Contractors',
+    summary: 'Manage subcontractor contacts and export to PDF.',
+    content: [
+      'Add/edit subcontractors with full contact info and service type.',
+      'Search local detailers in Methuen, MA and import selections.',
+      'Export selected profiles to a single PDF saved in File Manager.',
+    ],
+    route: '/sub-contractors',
+    section: 'menu',
+  },
+  {
+    id: 'vehicle-classification',
+    title: 'Vehicle Classification',
+    summary: 'Define vehicle categories for checklists and pricing.',
+    content: [
+      'Review classes and their usage in services and jobs.',
+      'Update names and mapping for consistent operations.',
+    ],
+    route: '/vehicle-classification',
+    section: 'menu',
+  },
+  {
+    id: 'client-evaluation',
+    title: 'Client Evaluation',
+    summary: 'Structured intake with goals and condition ratings.',
+    content: [
+      'Capture customer goals and complaints; store evaluations.',
+      'Use results to guide package selection and upsells.',
+    ],
+    route: '/client-evaluation',
+    section: 'menu',
+  },
+  {
+    id: 'upsell-script',
+    title: 'Addon Upsell Script',
+    summary: 'Generate and archive a PDF of the upsell script.',
+    content: [
+      'Fill inputs for vehicle, condition, complaints, goals, and notes.',
+      'Create a PDF saved under Upsell Script in File Manager.',
+    ],
+    route: '/upsell-script',
+    section: 'menu',
+  },
+  {
+    id: 'package-guide',
+    title: 'Package Explanation Guide',
+    summary: 'Explain packages clearly; printable helper.',
+    content: [
+      'Open explanation modal, edit text, and print as needed.',
+      'Use with customers to clarify package differences.',
+    ],
+    route: '/package-guide',
+    section: 'menu',
+  },
+  {
+    id: 'admin-dashboard',
+    title: 'Admin Dashboard',
+    summary: 'Central control hub for alerts, jobs, KPIs, and quick admin actions.',
+    content: [
+      'Overview cards show unpaid invoices, inventory alerts, task updates, and file changes.',
+      'Quick links provide access to Customer profiles, Invoicing, Accounting, Payroll, Inventory, File Manager, Reports, and more.',
+      'Menu Visibility Controls allow hiding or showing dashboard tiles in the sidebar and menus.',
+      'User Administration provides full user management: create, update, impersonate, and delete employees.',
+      'Employee Management modal focuses on employee operations with search and edit capabilities.',
+      'Website Administration integrates vehicle types, FAQs, contact info, and About sections management.',
+    ],
+    route: '/admin-dashboard',
+    section: 'menu',
+  },
+  {
     id: 'admin-dashboard',
     title: 'Admin Dashboard',
     summary: 'Central control hub for alerts, jobs, KPIs, and quick admin actions.',

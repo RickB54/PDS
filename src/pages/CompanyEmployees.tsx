@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, setCurrentUser } from "@/lib/auth";
 import { Users, Clock, CheckCircle2, DollarSign, Plus } from "lucide-react";
 import {
   Select,
@@ -198,12 +198,28 @@ const CompanyEmployees = () => {
       if (res?.ok) {
         toast({ title: 'Impersonation active', description: `Signed on as ${emp.name}` });
         setTimeout(() => { window.location.href = '/dashboard'; }, 200);
-      } else {
-        toast({ title: 'Failed to impersonate', description: 'User was not found.' });
+        return;
       }
     } catch {
-      toast({ title: 'Failed to impersonate' });
+      // ignore
     }
+    const roleNorm = String(emp.role || '').toLowerCase() === 'admin' ? 'admin' : 'employee';
+    setCurrentUser({ email: emp.email, name: emp.name, role: roleNorm as any });
+    toast({ title: 'Impersonation active', description: `Signed on as ${emp.name}` });
+    setTimeout(() => { window.location.href = '/dashboard'; }, 150);
+  };
+
+  const deleteEmployee = async (email: string) => {
+    if (!email) return;
+    const next = employees.filter(e => e.email !== email);
+    try {
+      await saveEmployees(next);
+      toast({ title: 'Employee deleted', description: email });
+    } catch (e:any) {
+      toast({ title: 'Delete failed', description: e?.message || 'Could not delete employee.', variant: 'destructive' });
+      return;
+    }
+    try { await api('/api/employees', { method: 'DELETE', body: JSON.stringify({ email }) }); } catch {}
   };
 
   const openAdd = () => {
@@ -307,16 +323,19 @@ const CompanyEmployees = () => {
           {/* All Employees */}
           <Card className="p-6 bg-gradient-card border-border">
             <h2 className="text-xl font-bold text-foreground mb-4">All Employees</h2>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {employees.map((emp) => (
-                <div key={emp.email} className="p-3 rounded border border-border">
-                  <div className="flex items-center justify-between gap-2">
+                <div key={emp.email} className="p-4 rounded border border-border flex flex-col justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-foreground">{emp.name}</p>
-                      <p className="text-sm text-muted-foreground">{emp.email}</p>
+                      <p className="text-sm text-muted-foreground break-all">{emp.email}</p>
                       <p className="text-xs text-muted-foreground">Role: {emp.role}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
                     <Button size="sm" className="bg-red-700 hover:bg-red-800" onClick={() => impersonateEmployee(emp)}>Impersonate</Button>
+                    <Button size="sm" variant="outline" className="border-red-600 text-red-500 hover:bg-red-600/10" onClick={() => deleteEmployee(emp.email)}>Delete</Button>
                   </div>
                 </div>
               ))}

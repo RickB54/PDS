@@ -111,22 +111,18 @@ const BookNow = () => {
   useEffect(() => {
     const loadVehicleTypes = async () => {
       try {
-        const res = await fetch(`http://localhost:6061/api/vehicle-types/live?v=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            const map: Record<string, string> = { ...vehicleLabels };
-            const opts: string[] = [];
-            data.forEach((vt: any) => {
-              const id = String(vt.id || vt.key || '').trim();
-              const name = String(vt.name || '').trim();
-              if (id && name) { map[id] = name; opts.push(id); }
-            });
-            setVehicleLabels(map);
-            setVehicleOptions(opts.length ? opts : ['compact','midsize','truck','luxury']);
-            // ensure current selection is valid
-            if (!opts.includes(vehicleType)) setVehicleType(opts[0] || 'compact');
-          }
+        const data = await api('/api/vehicle-types/live', { method: 'GET' });
+        if (Array.isArray(data)) {
+          const map: Record<string, string> = { ...vehicleLabels };
+          const opts: string[] = [];
+          data.forEach((vt: any) => {
+            const id = String(vt.id || vt.key || '').trim();
+            const name = String(vt.name || '').trim();
+            if (id && name) { map[id] = name; opts.push(id); }
+          });
+          setVehicleLabels(map);
+          setVehicleOptions(opts.length ? opts : ['compact','midsize','truck','luxury']);
+          if (!opts.includes(vehicleType)) setVehicleType(opts[0] || 'compact');
         }
       } catch {}
     };

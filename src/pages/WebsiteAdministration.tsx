@@ -593,13 +593,7 @@ export default function WebsiteAdministration() {
                     const updated = await api('/api/vehicle-types', { method: 'GET' });
                     setVehicleTypes(Array.isArray(updated) ? updated : []);
                     // Push live vehicle types to server so all dropdowns reflect edits immediately
-                    try {
-                      await fetch('http://localhost:6061/api/vehicle-types/live', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(Array.isArray(updated) ? updated : []),
-                      });
-                    } catch {}
+                    try { await api('/api/vehicle-types/live', { method: 'GET' }); } catch {}
                     try { await postFullSync(); } catch {}
                     try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'vehicle-types' } })); } catch {}
                     try { window.dispatchEvent(new CustomEvent('content-changed', { detail: { kind: 'packages' } })); } catch {}

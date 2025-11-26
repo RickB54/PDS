@@ -4,7 +4,7 @@ import { pushAdminAlert } from "@/lib/adminAlerts";
 interface PDFRecord {
   id: string;
   fileName: string;
-  recordType: "Invoice" | "Estimate" | "Job" | "Checklist" | "Customer" | "Employee Training" | "Bookings" | "Admin Updates" | "Payroll" | "Employee Contact" | "add-Ons" | "Mock Data";
+  recordType: "Invoice" | "Estimate" | "Job" | "Checklist" | "Customer" | "Employee Training" | "Bookings" | "Admin Updates" | "Payroll" | "Employee Contact" | "add-Ons" | "Mock Data" | "Upsell Script" | "Sub Contractors";
   customerName: string;
   date: string;
   timestamp: string;
@@ -71,6 +71,12 @@ export function savePDFToArchive(
       break;
     case "Mock Data":
       defaultPath = `Mock Data/`;
+      break;
+    case "Upsell Script":
+      defaultPath = `Upsell Script/`;
+      break;
+    case "Sub Contractors":
+      defaultPath = `Sub Contractors/`;
       break;
     default:
       defaultPath = '';

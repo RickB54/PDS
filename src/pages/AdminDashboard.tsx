@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
- import { AlertTriangle, CalendarDays, UserPlus, FileText, Package, DollarSign, Calculator, Folder, Users, Grid3X3, CheckSquare, Tag, Settings as Cog, Shield, ClipboardCheck, RotateCcw } from "lucide-react";
+import { AlertTriangle, CalendarDays, UserPlus, FileText, Package, DollarSign, Calculator, Folder, Users, Grid3X3, CheckSquare, Tag, Settings as Cog, Shield, ClipboardCheck, RotateCcw, Car } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CheatSheetPanel } from "@/pages/CheatSheet";
 import localforage from "localforage";
@@ -185,6 +185,14 @@ export default function AdminDashboard() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [mockDataOpen, setMockDataOpen] = useState(false);
   const [mockReport, setMockReport] = useState<any | null>(null);
+  const [rtBanner, setRtBanner] = useState<string | null>(null);
+  const [rtShow, setRtShow] = useState(false);
+  const rtTimerRef = useRef<any>(null);
+  const prevUnreadRef = useRef(unreadCount);
+  const [chatMessages, setChatMessages] = useState<{ id: string; author: string; text: string; at: string; parentId?: string; to?: string }[]>([]);
+  const [replyDraft, setReplyDraft] = useState<Record<string,string>>({});
+  const [openAlertId, setOpenAlertId] = useState<string | null>(null);
+  
   // Bookings list for dashboard metrics (e.g., today's new bookings)
   const items = useBookingsStore((s) => s.items);
 
@@ -210,6 +218,86 @@ export default function AdminDashboard() {
     } catch { setEmployees([]); }
   };
   useEffect(() => { if (employeeMgmtOpen) loadEmployees(); }, [employeeMgmtOpen]);
+
+  const truncate = (text: string) => {
+    const words = String(text || '').trim().split(/\s+/);
+    if (words.length <= 5) return words.join(' ');
+    return words.slice(0, 5).join(' ') + '…';
+  };
+
+  useEffect(() => {
+    const newest = latest[latest.length - 1]?.title || '';
+    if (unreadCount > prevUnreadRef.current) {
+      const tx = truncate(newest);
+      if (tx) {
+        setRtBanner(tx);
+        setRtShow(true);
+        if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
+        rtTimerRef.current = setTimeout(() => setRtShow(false), 5000);
+      }
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount, latest]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = (await localforage.getItem('task_chat')) || [];
+        setChatMessages(Array.isArray(list) ? list : []);
+      } catch { setChatMessages([]); }
+    })();
+    const onStorage = async (e: StorageEvent) => {
+      if (e.key === 'task_chat') {
+        try {
+          const list = (await localforage.getItem('task_chat')) || [];
+          setChatMessages(Array.isArray(list) ? list : []);
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  
+
+  const deleteChatByAlert = async (alertId: string) => {
+    try {
+      const full = alertsAll.find(a => a.id === alertId);
+      const msgId = String(full?.payload?.messageId || '');
+      if (!msgId) return;
+      const list = (await localforage.getItem<any[]>('task_chat')) || [];
+      const next = list.filter((m: any) => m.id !== msgId && m.parentId !== msgId);
+      await localforage.setItem('task_chat', next);
+      setChatMessages(Array.isArray(next) ? next : []);
+    } catch {}
+  };
+
+  const sendReplyByAlert = async (alertId: string) => {
+    try {
+      const full = alertsAll.find(a => a.id === alertId);
+      const msgId = String(full?.payload?.messageId || '');
+      const toAuthor = String(full?.actor || '');
+      const text = String(replyDraft[alertId] || '').trim();
+      if (!msgId || !text) return;
+      const user = getCurrentUser();
+      const reply = { id: `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, author: String(user?.name || user?.email || 'Admin'), text, at: new Date().toISOString(), parentId: msgId, to: toAuthor };
+      const list = (await localforage.getItem<any[]>('task_chat')) || [];
+      const next = [...list, reply];
+      await localforage.setItem('task_chat', next);
+      setChatMessages(next as any);
+      setReplyDraft(prev => ({ ...prev, [alertId]: '' }));
+      try {
+        const key = toAuthor;
+        if (key) pushEmployeeNotification(key, `Reply from ${String(user?.name || 'Admin')}`, { text });
+      } catch {}
+    } catch {}
+  };
+
+  
+
+  
+
+  
 
   const createEmployee = async () => {
     if (!empNewName || !empNewEmail) {
@@ -562,55 +650,89 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-3 text-sm">
               <span className="text-white">Unread: {unreadCount}</span>
               <Button size="sm" className="bg-black text-red-700 border-red-700 hover:bg-red-800/20" onClick={dismissAll}>Dismiss All</Button>
+              <button
+                className="inline-flex items-center px-2 py-1 rounded border border-blue-600 text-blue-400"
+                onClick={() => {
+                  const latestTodo = [...alertsAll].reverse().find(a => a.type === 'todo_chat');
+                  if (latestTodo) setOpenAlertId(latestTodo.id);
+                }}
+              >View Messages</button>
             </div>
           </div>
+          {rtShow && rtBanner && (
+            <div className="mt-3 flex items-center justify-between bg-black text-white border border-zinc-700 rounded px-2 py-1">
+              <span className="text-sm whitespace-nowrap">{rtBanner}</span>
+              <button className="ml-2 text-white" onClick={() => setRtShow(false)}>x</button>
+            </div>
+          )}
           <Separator className="my-3" />
           <div className="space-y-2 max-h-48 overflow-auto">
-            {[...latest].reverse().slice(0, 10).map((a) => (
-              <div key={a.id} className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-white">{a.title}</span>
-                <div className="flex items-center gap-2">
-                  <a href={a.href} className="text-xs text-blue-400 hover:underline" onClick={() => markRead(a.id)}>Open</a>
-                  <Button size="xs" variant="outline" onClick={() => markRead(a.id)}>Mark read</Button>
-                  <Button size="xs" variant="outline" className="bg-black text-red-700 border-red-700 hover:bg-red-800/20" onClick={() => dismiss(a.id)}>Dismiss</Button>
+            {[...latest].reverse().slice(0, 10).map((a) => {
+              const full = alertsAll.find(x => x.id === a.id);
+              const isTodoMsg = full?.type === 'todo_chat';
+              const msgId = String(full?.payload?.messageId || '');
+              const hasReply = msgId ? chatMessages.some(m => m.parentId === msgId) : false;
+              return (
+                <div key={a.id} className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text_white text-white">{a.title}</span>
+                  <div className="flex items-center gap-2">
+                    <button className="text-xs text-blue-400 hover:underline" onClick={() => { setOpenAlertId(openAlertId === a.id ? null : a.id); markRead(a.id); }}>View</button>
+                    {isTodoMsg && (
+                      <>
+                        {!hasReply && (
+                          <>
+                            <input
+                              value={replyDraft[a.id] || ''}
+                              onChange={(e) => setReplyDraft(prev => ({ ...prev, [a.id]: e.target.value }))}
+                              placeholder="Reply"
+                              className="text-xs bg-zinc-800 border border-zinc-700 text-white rounded px-2 py-1"
+                            />
+                            <Button size="xs" variant="outline" onClick={() => sendReplyByAlert(a.id)}>Reply</Button>
+                          </>
+                        )}
+                        <Button size="xs" variant="outline" className="bg-black text-red-700 border-red-700 hover:bg-red-800/20" onClick={() => deleteChatByAlert(a.id)}>Delete</Button>
+                      </>
+                    )}
+                    <Button size="xs" variant="outline" onClick={() => markRead(a.id)}>Mark read</Button>
+                    <Button size="xs" variant="outline" className="bg-black text-red-700 border-red-700 hover:bg-red-800/20" onClick={() => dismiss(a.id)}>Dismiss</Button>
+                  </div>
+                  {openAlertId === a.id && (
+                    <div className="mt-2 bg-black text-white border border-zinc-700 rounded p-2 text-sm">
+                      <div>{String(full?.payload?.text || '')}</div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
 
         {/* Eight grouped boxes with combined menu items in a 3x3-style grid */}
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Training Hub */}
-          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+          {/* Client Intake Tools — moved to first position */}
+          <Card id="client-intake-tools" className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
             <div className="flex items-center gap-2 mb-3">
-              <ClipboardCheck className="w-6 h-6 text-green-500" />
-              <div className="text-lg font-bold">Training Hub</div>
+              <Users className="w-6 h-6 text-blue-500" />
+              <div className="text-lg font-bold text-white">Client Intake Tools</div>
             </div>
-            {/* Cheat Sheet & Exam Control — compact pill links with icons */}
             <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
-              <div className="mt-1 flex flex-row flex-wrap gap-1.5">
-                <button type="button" onClick={() => setCheatOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-purple-600 text-purple-600 hover:bg-purple-600/10 cursor-pointer">
-                  <FileText className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Open Cheat Sheet</span>
-                </button>
-                <Link to="/exam-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-indigo-600 text-indigo-600 hover:bg-indigo-600/10">
-                  <Cog className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Manage Exam</span>
+              <div className="flex flex-row flex-wrap gap-2">
+                <Link to="/vehicle-classification" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-emerald-600 text-emerald-400 hover:bg-emerald-600/10">
+                  <span>Vehicle Classification</span>
                 </Link>
-                <button type="button" onClick={() => setOrientationOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-orange-600 text-orange-600 hover:bg-orange-600/10">
-                  <ClipboardCheck className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Employee Handbook</span>
-                </button>
-                {/* Place Take Exam directly under Open Entire Exam without disturbing layout */}
-                <div className="w-full"></div>
-                <Link to="/employee-dashboard?startExam=1" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-green-600 text-green-600 hover:bg-green-600/10">
-                  <ClipboardCheck className="w-3.5 h-3.5 text-green-600" />
-                  <span>Take Exam</span>
+                <Link to="/client-evaluation" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600 text-blue-400 hover:bg-blue-600/10">
+                  <span>Client Evaluation</span>
+                </Link>
+                <Link to="/upsell-script" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-purple-600 text-purple-400 hover:bg-purple-600/10">
+                  <span>Addon Upsell Script</span>
+                </Link>
+                <Link to="/package-guide" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-emerald-600 text-emerald-400 hover:bg-emerald-600/10">
+                  <span>Package Explanation Guide</span>
                 </Link>
               </div>
             </Card>
           </Card>
+
 
           {/* Admin Control */}
           <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
@@ -660,51 +782,65 @@ export default function AdminDashboard() {
                 {!isMenuHidden('jobs-completed-admin') && (
                   <RedBox accent="orange" title="Jobs Completed by Admin" subtitle="View your admin work history" href="/jobs-completed?employee=admin" Icon={FileText} badgeCount={adminJobsCount} />
                 )}
-                {!isMenuHidden('book-new-job') && (
-                  <RedBox
-                    accent="orange"
-                    title="Book A New Job"
-                    subtitle="Lead to Book Now page"
-                    href="/book-now"
-                    Icon={ClipboardCheck}
-                  />
+              {!isMenuHidden('book-new-job') && (
+                <RedBox
+                  accent="orange"
+                  title="Book A New Job"
+                  subtitle="Lead to Book Now page"
+                  href="/book-now"
+                  Icon={ClipboardCheck}
+                />
+              )}
+              
+              {/* New Booking card removed */}
+            </div>
+          </Card>
+        </Card>
+
+          {/* Search Products & Services */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-6 h-6 text-blue-500" />
+              <div className="text-lg font-bold">Search Products & Services</div>
+            </div>
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                <RedBox accent="blue" title="Manage Sub‑Contractors" subtitle="Open list and tools" href="/sub-contractors" Icon={Users} />
+                <RedBox accent="green" title="Detailing Vendors" subtitle="Find shops & suppliers" href="/vendors" Icon={Package} />
+                {!isMenuHidden('package-pricing') && (
+                  <RedBox accent="pink" title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
                 )}
-                {/* New Booking card removed */}
               </div>
             </Card>
           </Card>
 
-          {/* Customer Hub */}
+          {/* Client Intake Tools block moved above; removed here */}
+
+          {/* Training Hub — moved to 5th position */}
           <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
             <div className="flex items-center gap-2 mb-3">
-              <Users className="w-6 h-6 text-purple-500" />
-              <div className="text-lg font-bold">Customer Hub</div>
-            </div>
-            {/* Inner dark box to match Training Hub */}
-            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
-              <div className="flex flex-row flex-wrap gap-2">
-                {!isMenuHidden('search-customer') && (
-                  <RedBox accent="purple" title="Add Customer" subtitle="Open popup to add" onClick={() => setAddCustomerOpen(true)} Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
-                )}
-                {!isMenuHidden('customer-profiles') && (
-                  <RedBox accent="purple" title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
-                )}
-              </div>
-            </Card>
-
-            {/* Tasks & Portal (moved under Customer Hub, same format) */}
-            <div className="flex items-center gap-2 mt-6 mb-3">
-              <CheckSquare className="w-6 h-6 text-zinc-400" />
-              <div className="text-lg font-bold">Tasks & Portal</div>
+              <ClipboardCheck className="w-6 h-6 text-green-500" />
+              <div className="text-lg font-bold">Training Hub</div>
             </div>
             <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
-              <div className="flex flex-row flex-wrap gap-2">
-                {!isMenuHidden('employee-dashboard') && (
-                  <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
-                )}
-                {!isMenuHidden('service-checklist') && (
-                  <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/tasks" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
-                )}
+              <div className="mt-1 flex flex-row flex-wrap gap-1.5">
+                <button type="button" onClick={() => setCheatOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-purple-600 text-purple-600 hover:bg-purple-600/10 cursor-pointer">
+                  <FileText className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Open Cheat Sheet</span>
+                </button>
+                <Link to="/exam-admin" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-indigo-600 text-indigo-600 hover:bg-indigo-600/10">
+                  <Cog className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Manage Exam</span>
+                </Link>
+                <button type="button" onClick={() => setOrientationOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-orange-600 text-orange-600 hover:bg-orange-600/10">
+                  <ClipboardCheck className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Employee Handbook</span>
+                </button>
+                <div className="w-full"></div>
+                <Link to="/employee-dashboard?startExam=1" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-green-600 text-green-600 hover:bg-green-600/10">
+                  <ClipboardCheck className="w-3.5 h-3.5 text-green-600" />
+                  <span>Take Exam</span>
+                </Link>
               </div>
             </Card>
           </Card>
@@ -758,20 +894,46 @@ export default function AdminDashboard() {
               </div>
             </Card>
 
-            {/* Pricing moved under Inventory & Files, preserving colors and structure */}
-            <div className="flex items-center gap-2 mt-6 mb-3">
-              <Tag className="w-6 h-6 text-pink-500" />
-              <div className="text-lg font-bold">Pricing</div>
+          </Card>
+
+          {/* Tasks & Portal */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckSquare className="w-6 h-6 text-zinc-400" />
+              <div className="text-lg font-bold">Tasks & Portal</div>
             </div>
-            {/* Inner dark box to match Training Hub */}
             <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
               <div className="flex flex-row flex-wrap gap-2">
-                {!isMenuHidden('package-pricing') && (
-                  <RedBox accent="pink" title="Package Pricing" subtitle="Update prices" href="/package-pricing" Icon={Tag} badgeCount={badgeByType('pricing_update')} />
+                {!isMenuHidden('employee-dashboard') && (
+                  <RedBox accent="zinc" title="Staff Portal" subtitle="Open menu" href="/employee-dashboard" Icon={Grid3X3} />
+                )}
+              {!isMenuHidden('service-checklist') && (
+                <RedBox accent="zinc" title="Todo" subtitle={`Overdue: ${0}`} href="/tasks" Icon={CheckSquare} badgeCount={badgeByType('todo_overdue')} />
+              )}
+              <RedBox accent="blue" title="Team Communications" subtitle="View messages" href="/team-communications" Icon={Users} />
+              </div>
+            </Card>
+          </Card>
+
+          {/* Customer Hub */}
+          <Card className="relative p-5 bg-[#18181b] rounded-2xl border border-zinc-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-6 h-6 text-purple-500" />
+              <div className="text-lg font-bold">Customer Hub</div>
+            </div>
+            <Card className="p-4 bg-[#0f0f13] rounded-xl border border-zinc-800">
+              <div className="flex flex-row flex-wrap gap-2">
+                {!isMenuHidden('search-customer') && (
+                  <RedBox accent="purple" title="Add Customer" subtitle="Open popup to add" onClick={() => setAddCustomerOpen(true)} Icon={UserPlus} badgeCount={badgeByType('customer_added')} />
+                )}
+                {!isMenuHidden('customer-profiles') && (
+                  <RedBox accent="purple" title="Customer Profiles" subtitle="View Customer Info PDFs" href="/search-customer" Icon={Users} badgeCount={alertsAll.filter(a => a.payload?.recordType === 'Customer' && !a.read).length} />
                 )}
               </div>
             </Card>
           </Card>
+
+          
 
           {/* Add Customer Popup */}
           <CustomerModal
@@ -810,6 +972,7 @@ export default function AdminDashboard() {
             <CheatSheetPanel embedded />
           </DialogContent>
         </Dialog>
+        
 
         {/* Mock Data System Popup — local-only users/employees/inventory */}
         <Dialog open={mockDataOpen} onOpenChange={setMockDataOpen}>
