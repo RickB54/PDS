@@ -36,6 +36,8 @@ async function loadGapi(): Promise<Gapi | null> {
 }
 
 export async function isDriveEnabled(): Promise<boolean> {
+  const mode = (import.meta.env.VITE_AUTH_MODE || 'local').toLowerCase();
+  if (mode === 'local') return false;
   return Boolean(CLIENT_ID && API_KEY && (await loadGapi()));
 }
 

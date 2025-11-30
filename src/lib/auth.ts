@@ -75,6 +75,13 @@ const QUICK_ACCESS_USERS = {
 };
 
 export function getCurrentUser(): User | null {
+  const mode = (import.meta.env.VITE_AUTH_MODE || 'local').toLowerCase();
+  if (mode === 'local') {
+    const isAdmin = localStorage.getItem('adminMode') === 'true';
+    if (isAdmin) return { email: 'admin@local', name: 'Admin', role: 'admin' };
+    return null;
+  }
+
   if (isIdentityEnabled()) {
     try {
       const user = identityCurrentUser();
@@ -96,6 +103,13 @@ export function getCurrentUser(): User | null {
 }
 
 export function setCurrentUser(user: User | null): void {
+  const mode = (import.meta.env.VITE_AUTH_MODE || 'local').toLowerCase();
+  if (mode === 'local') {
+    // In local mode, we primarily drive off adminMode, but if something tries to set user, we can sync it.
+    if (user?.role === 'admin') localStorage.setItem('adminMode', 'true');
+    else localStorage.removeItem('adminMode');
+  }
+
   if (user) {
     localStorage.setItem('currentUser', JSON.stringify(user));
   } else {
@@ -466,6 +480,9 @@ export function logout(): void {
     setCurrentUser(null);
     return;
   }
+  // Local mode cleanup
+  localStorage.removeItem('adminMode');
+
   try {
     const prev = localStorage.getItem('impersonator');
     if (prev) {

@@ -1,26 +1,49 @@
-import { createClient } from '@supabase/supabase-js';
+// src/lib/supabase.ts
+// Runtime compatibility stub: when VITE_AUTH_MODE=local this stub prevents network calls.
+// Keep this file in place. It MUST NOT throw. It should return harmless results.
 
-// Normalize env strings to avoid issues with quotes/backticks/whitespace
-function normalizeEnv(v: unknown): string {
-  return String(v ?? '')
-    .trim()
-    .replace(/^['"`]\s*/, '')
-    .replace(/\s*['"`]$/, '');
+const MODE = (import.meta.env.VITE_AUTH_MODE || 'local').toLowerCase();
+
+if (MODE === 'supabase') {
+  // If you later re-enable Supabase, restore the original client here.
+  // For now, we intentionally do not initialize a real client in this branch.
+  // (This prevents accidental network usage in local dev.)
 }
 
-export const SUPABASE_URL = normalizeEnv(import.meta.env.VITE_SUPABASE_URL);
-export const SUPABASE_ANON_KEY = normalizeEnv(import.meta.env.VITE_SUPABASE_ANON_KEY);
+// Minimal supabase-like stubs used by the app.
+// Extend if you find additional methods the app calls.
+export const supabase = {
+  auth: {
+    getUser: async () => ({ data: null, error: null }),
+    getSession: async () => ({ data: null, error: null }),
+    signInWithPassword: async () => ({ data: null, error: { message: 'supabase-disabled' } }),
+    signUp: async () => ({ data: null, error: { message: 'supabase-disabled' } }),
+    signOut: async () => ({ error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
+    updateUser: async () => ({ data: null, error: null }),
+  },
+  from: (/*table:string*/) => ({
+    select: async () => ({ data: [], error: null }),
+    insert: async () => ({ data: [], error: null }),
+    upsert: async () => ({ data: [], error: null }),
+    update: async () => ({ data: [], error: null }),
+    delete: async () => ({ data: [], error: null }),
+    eq: () => ({
+      select: async () => ({ data: [], error: null }),
+      maybeSingle: async () => ({ data: null, error: null }),
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) })
+    }),
+    match: () => ({ select: async () => ({ data: [], error: null }) }),
+  }),
+  storage: {
+    from: () => ({ upload: async () => ({ error: null }), download: async () => ({ data: null, error: null }) })
+  },
+  functions: {
+    invoke: async () => ({ data: null, error: null }),
+  },
+  rpc: async () => ({ data: null, error: null }),
+};
 
-export function isSupabaseConfigured(): boolean {
-  const urlOk = typeof SUPABASE_URL === 'string' && SUPABASE_URL.startsWith('http');
-  const keyOk = typeof SUPABASE_ANON_KEY === 'string' && SUPABASE_ANON_KEY.length > 20;
-  const notPlaceholder = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
-  return urlOk && keyOk && notPlaceholder;
-}
-
-export const supabase = createClient(
-  SUPABASE_URL || 'https://YOUR-PROJECT.supabase.co',
-  SUPABASE_ANON_KEY || 'YOUR-ANON-KEY'
-);
+export const isSupabaseConfigured = () => false;
 
 export default supabase;

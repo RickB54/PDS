@@ -7,11 +7,23 @@ import logo from "@/assets/logo-3inch.png";
 import NotificationBell from "@/components/NotificationBell";
 import { useCartStore } from "@/store/cart";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+let clickTimer: number | null = null;
+let clickCount = 0;
+
+function handleAdminUnlock() {
+  clickCount++;
+  if (clickTimer) window.clearTimeout(clickTimer);
+  clickTimer = window.setTimeout(() => {
+    if (clickCount >= 5) {
+      localStorage.setItem('adminMode', 'true');
+      window.location.href = '/dashboard';
+    }
+    clickCount = 0;
+  }, 600);
+}
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -44,12 +56,24 @@ export const Navbar = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // 5-tap admin unlock logic
+  const handleLogoClick = (e: React.MouseEvent) => {
+    // We allow default navigation to /, but we also count clicks
+    // If we want to prevent navigation on the 5th click, we could, but redirecting to dashboard handles it.
+
+    // Use module-level variables or refs? 
+    // Since this is a functional component, let's use a ref or just static variables outside if we want persistence across re-renders (though Navbar shouldn't unmount often).
+    // The user provided snippet used module level lets. I'll put them outside or use refs.
+    // Let's use the user's snippet logic but adapted for the component.
+    handleAdminUnlock();
+  };
+
   return (
     <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" onClick={handleLogoClick} className="flex items-center gap-2">
             <img src={logo} alt="Prime Detail Solutions" className="w-10 h-10" />
             <span className="font-bold text-foreground hidden sm:inline">Prime Detail Solutions</span>
           </Link>
@@ -60,9 +84,8 @@ export const Navbar = () => {
               <Link
                 key={`${link.to}-${link.label}`}
                 to={link.to}
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive(link.to) ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive(link.to) ? "text-primary" : "text-muted-foreground"
+                  }`}
               >
                 {link.label}
               </Link>
@@ -79,7 +102,7 @@ export const Navbar = () => {
                 </span>
               )}
             </Link>
-            
+
             {user ? (
               <>
                 <span className="text-sm text-muted-foreground flex items-center">
@@ -126,9 +149,8 @@ export const Navbar = () => {
                   key={`${link.to}-${link.label}`}
                   to={link.to}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`text-sm font-medium transition-colors hover:text-primary px-2 py-1 ${
-                    isActive(link.to) ? "text-primary" : "text-muted-foreground"
-                  }`}
+                  className={`text-sm font-medium transition-colors hover:text-primary px-2 py-1 ${isActive(link.to) ? "text-primary" : "text-muted-foreground"
+                    }`}
                 >
                   {link.label}
                 </Link>
@@ -138,9 +160,8 @@ export const Navbar = () => {
               <Link
                 to="/checkout"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`text-sm font-medium transition-colors hover:text-primary px-2 py-1 ${
-                  isActive('/checkout') ? 'text-primary' : 'text-muted-foreground'
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary px-2 py-1 ${isActive('/checkout') ? 'text-primary' : 'text-muted-foreground'
+                  }`}
               >
                 <span className="inline-flex items-center">
                   <ShoppingCart className="h-4 w-4 mr-2" />

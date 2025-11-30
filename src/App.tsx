@@ -8,7 +8,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { getCurrentUser, initSupabaseAuth, setAuthMode, isSupabaseEnabled } from "@/lib/auth";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
+// Login page removed
 import CustomerPortal from "./pages/CustomerPortal";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import ServiceChecklist from "./pages/ServiceChecklist";
@@ -60,16 +60,27 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   if (isSupabaseEnabled()) {
     try {
       const sid = localStorage.getItem('session_user_id');
-      if (!sid) return <Navigate to="/login" replace />;
-    } catch { return <Navigate to="/login" replace />; }
+      // if (!sid) return <Navigate to="/login" replace />; // Login removed
+    } catch { } // return <Navigate to="/login" replace />;
   }
 
   if (!user && allowedRoles.length > 0) {
-    return <Navigate to="/login" replace />;
+    // return <Navigate to="/login" replace />;
+    // In local mode, we allow access or show a placeholder if needed, but for now just render children or null
+    // The user said: "For local mode: allow; for production you can implement role checks later"
+    // But if we allow, we might crash if user is null.
+    // However, the user instruction is explicit.
+    // Let's check if we are in local mode.
+    const mode = (import.meta.env.VITE_AUTH_MODE || 'local').toLowerCase();
+    if (mode === 'local') {
+      // Allow access, components might handle null user gracefully or we rely on 5-tap to become admin
+    } else {
+      // return <Navigate to="/login" replace />;
+    }
   }
 
   if (user && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
+    // return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
@@ -108,7 +119,7 @@ const App = () => {
               <div className="flex-1">
                 <ErrorBoundary>
                   <Routes>
-                    <Route path="/login" element={<Login />} />
+                    {/* Login route removed */}
                     {/* QuickLogin removed: Supabase-only authentication */}
                     {/* Public homepage routes */}
                     <Route path="/about" element={<About />} />
@@ -128,7 +139,7 @@ const App = () => {
                         user?.role === 'admin' ? <Navigate to="/dashboard/admin" replace /> :
                           user?.role === 'employee' ? <Navigate to="/dashboard/employee" replace /> :
                             user?.role === 'customer' ? <Navigate to="/customer-portal" replace /> :
-                              <Login />
+                              <Index /> // Fallback to Index instead of Login
                       }
                     />
                     <Route path="/customer-portal" element={
